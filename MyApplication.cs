@@ -442,10 +442,7 @@ namespace Template
                                 color = closestIntersection.intersectedPrimitive.color;
                                 // This is not optimal, as it takes the minimal distance between the primitive and the source, not the minimal distance of rays that actually hit the primitive.
                                 float minimalDistance = (closestIntersection.ray.startingPosition - closestIntersection.intersectedPrimitive.position).Length;
-                                colorScaleFactor = ((float)closestIntersection.distanceToStartingPoint) / (10 * minimalDistance);
-
-                                // code hierboven werkt nog niet goed
-                                colorScaleFactor = 1;
+                                colorScaleFactor = minimalDistance / (float)closestIntersection.distanceToStartingPoint - 1;
                             }
 
                             Color3 scaledColor = new Color3(
@@ -488,7 +485,7 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = true;
+        public bool debugMode = false;
         public void Tick()
         {
             timer.Restart();
