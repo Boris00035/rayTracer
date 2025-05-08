@@ -485,7 +485,7 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = false;
+        public bool debugMode = true;
         public void Tick()
         {
             timer.Restart();
