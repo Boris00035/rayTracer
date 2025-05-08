@@ -478,7 +478,7 @@ namespace Template
         public void Init()
         {
             // (optional) example of how you can load a triangle mesh in any file format supported by Assimp
-            object? mesh = Util.ImportMesh("assets/cube.obj");
+            //object? mesh = Util.ImportMesh("../../../assets/cube.obj");
         }
         // tick: renders one frame
         private TimeSpan deltaTime = new();
