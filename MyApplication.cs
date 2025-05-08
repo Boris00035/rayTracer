@@ -328,7 +328,6 @@ namespace Template
                                 if ((closestLightRayIntersection.intersectionPoint - closestIntersection.intersectionPoint).Length < 0.1)
                                 {
                                     visibility = true;
-                                    break;
                                 }
                             }
                             // lightRayIntersectionArray = new List<Intersection>();
@@ -428,7 +427,6 @@ namespace Template
                                     if ((closestLightRayIntersection.intersectionPoint - closestIntersection.intersectionPoint).Length < 0.1)
                                     {
                                         visibility = true;
-                                        break;
                                     }
                                 }
                                 lightRayIntersectionArray = new List<Intersection>();
@@ -449,7 +447,7 @@ namespace Template
                                 closestIntersection.intersectedPrimitive.color.R * colorScaleFactor,
                                 closestIntersection.intersectedPrimitive.color.G * colorScaleFactor,
                                 closestIntersection.intersectedPrimitive.color.B * colorScaleFactor );
-                            screen.Plot(widthPixel, heightPixel, scaledColor);
+                            screen.Plot(widthPixel, heightPixel, color);
                         }
                         // Console.WriteLine(closestIntersection.intersectionPoint);
 
@@ -496,7 +494,9 @@ namespace Template
                 new Sphere(new Vector3(400, 50, 50), 100, (1,0,0), []),
                 new Sphere(new Vector3(100, 0, 0), 100, (0,1,0), []),
                 ],
-                [new LightSource(new Vector3(1000, 0, 300), 0.5)]);
+                [
+                new LightSource(new Vector3(1000, 0, 300), 0.5),
+                new LightSource(new Vector3(100, 0, 500), 0.5)]);
             Camera camera = new Camera(
                 new Vector3(300, 0, 300),
                 new Vector3(0, 0, -1),
