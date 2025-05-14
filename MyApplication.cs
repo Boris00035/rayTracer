@@ -1,10 +1,14 @@
 // TODO:
 // Implement the plane debugDraw and Intersection methods
+// Change all Color3's to Vector3's and convert it when passing to screen.plot
 
 // Take user input to change the view and position of camera
 // implement shading
 
-// vragen: Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
+// vragen: 
+// 1. Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
+// 2. in de slides wordt de radiance gedeeld door r^2, de afstand van de lichtbron tot het object, moet je niet ook delen door r'^2, de afstand van het object tot het "oog"? 
+
 
 using Assimp;
 using OpenTK.Mathematics;
@@ -12,13 +16,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using System.Linq;
-using Microsoft.VisualBasic;
-using OpenTK.Graphics.OpenGL;
-using OpenTK.Mathematics;
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.Desktop;
-using OpenTK.Windowing.GraphicsLibraryFramework;
-using System.Drawing;
+
 
 namespace Template
 {
@@ -45,21 +43,23 @@ namespace Template
     public class LightSource
     {
         public Vector3 position;
-        public double intensity;
+        public Color3 color;
 
-        public LightSource(Vector3 position, double intensity)
+        public LightSource(Vector3 position, Color3 color)
         {
             this.position = position;
-            this.intensity = intensity;
+            this.color = color;
         }
 
         public void DebugDraw(Surface screen)
         {
+            if (position[0] >=0 && position[2] >=0) {
             screen.Bar((int)Math.Round(position[0]) - 1,
                         (int)Math.Round(position[2]) - 1,
                         (int)Math.Round(position[0]) + 1,
                         (int)Math.Round(position[2]) + 1,
                         new Color3(0, 1, 1));
+            }
         }
 
     }
@@ -76,7 +76,7 @@ namespace Template
         }
     }
 
-    // make abstract Ray class, then two classes lightRay and cameraRay.
+    // possible idea: make abstract Ray class, then two classes lightRay and cameraRay.
     // Then have every intersection a Ray field, and every (geometry) primitive a list of closestLightIntersections, and possibly also store the closestCameraIntersection 
 
     public class Intersection
@@ -104,14 +104,17 @@ namespace Template
         public abstract Intersection? Intersect(Ray ray);
         public abstract void DebugDraw(Surface screen);
         public Vector3 position;
-        public Color3 color;
+        public Color3 diffuseColor;
+        public Color3 specularColor;
         // this field is currently not used, the closestlightintersection is just calculated when needed. But with some refactoring this can probably be extracted fairly cheaply from the "main" loop.
         public List<Intersection> closestLightIntersections;
 
-        protected GeometryPrimitive(Vector3 position, Color3 color, List<Intersection> closestLightIntersections)
+        protected GeometryPrimitive(Vector3 position, Color3 diffuseColor, Color3 specularColor, List<Intersection> closestLightIntersections)
         {
-            this.color = color;
+            this.diffuseColor = diffuseColor;
             this.position = position;
+            this.diffuseColor = diffuseColor;
+            this.specularColor = specularColor;
             this.closestLightIntersections = closestLightIntersections;
         }
     }
@@ -122,7 +125,7 @@ namespace Template
         float width;
         float height;
 
-        public Plane(Vector3 position, Vector3 normal, float width, float height, Color3 color, List<Intersection> closestIntersections) : base(position, color, closestIntersections)
+        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, Color3 color, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, closestIntersections)
         {
             this.normal = normal;
             this.width = width;
@@ -131,7 +134,7 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-            Plane examplePlane = new Plane((1, 0, 0), new Vector3(0, 0, 1), 10, 10,  (0,0,0), []);
+            Plane examplePlane = new Plane((0, 0, 0), new Color3(0, 0, 1), new Color3(0, 0, 1), new Vector3(0, 1, 0), 10, 10, (0, 0, 0), []);
             Vector3 intersectionNormal = new Vector3(0, 0, -1);
             return new Intersection(new Vector3(0, 0, 0), examplePlane, 5.0, intersectionNormal, ray);
         }
@@ -146,7 +149,7 @@ namespace Template
     {
         public double radius;
 
-        public Sphere(Vector3 position, double radius, Color3 color, List<Intersection> closestIntersections) : base(position, color, closestIntersections)
+        public Sphere(Vector3 position, double radius, Color3 diffuseColor, Color3 specularColor, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, closestIntersections)
         {
             this.radius = radius;
         }
@@ -194,7 +197,7 @@ namespace Template
                             (int)Math.Round(position[2] + adjustedRadius * Math.Sin(i * interval)),
                             (int)Math.Round(position[0] + adjustedRadius * Math.Cos((i + 1) * interval)),
                             (int)Math.Round(position[2] + adjustedRadius * Math.Sin((i + 1) * interval)),
-                            color);
+                            diffuseColor);
             }
         }
     }
@@ -203,13 +206,16 @@ namespace Template
     {
         public GeometryPrimitive[] primitives;
         public LightSource[] lightSources;
+        public Color3 ambientRadiance;
 
-        public SceneGeometry(GeometryPrimitive[] primitives, LightSource[] lightSources)
+        public SceneGeometry(GeometryPrimitive[] primitives, LightSource[] lightSources, Color3 ambientRadiance)
         {
             this.primitives = primitives;
             this.lightSources = lightSources;
+            this.ambientRadiance = ambientRadiance;
         }
     }
+
 
     public class RayTracer
     {
@@ -242,7 +248,7 @@ namespace Template
                         (int)Math.Round(focalPoint[2]) + 1,
                         new Color3(1, 1, 0));
 
-                List<Intersection> intersectionArray = new List<Intersection>();
+                List<Intersection> primaryIntersectionArray = new List<Intersection>();
                 float cameraSizeStep = camera.width / screen.width;
 
 
@@ -268,13 +274,13 @@ namespace Template
 
                         if (intersectResult != null)
                         {
-                            intersectionArray.Add(intersectResult);
+                            primaryIntersectionArray.Add(intersectResult);
                         }
                     }
 
                     Vector3 zeroVector = new Vector3(0, 0, 0);
 
-                    if (intersectionArray.Count == 0)
+                    if (primaryIntersectionArray.Count == 0)
                     {
                         screen.Line((int)Math.Round(focalPoint[0]),
                                     (int)Math.Round(focalPoint[2]),
@@ -284,7 +290,7 @@ namespace Template
                     }
                     else
                     {
-                        Intersection closestIntersection = intersectionArray
+                        Intersection closestIntersection = primaryIntersectionArray
                         .OrderBy(i => i.distanceToStartingPoint)
                         .First();
                         screen.Line((int)Math.Round(focalPoint[0]),
@@ -293,7 +299,7 @@ namespace Template
                                     (int)Math.Round(closestIntersection.intersectionPoint[2]),
                                     new Color3(1, 1, 0));
 
-                        bool visibility = false;
+                        // bool visibility = false;
 
                         foreach (LightSource lightSource in scene.lightSources)
                         {
@@ -315,7 +321,7 @@ namespace Template
                             {
                                 Intersection closestLightRayIntersection = lightRayIntersectionArray
                                     .OrderBy(i => i.distanceToStartingPoint)
-                                    .First();                                
+                                    .First();
 
                                 screen.Line((int)Math.Round(lightSource.position[0]),
                                             (int)Math.Round(lightSource.position[2]),
@@ -325,10 +331,10 @@ namespace Template
                                 // Console.WriteLine(closestLightRayIntersection.intersectionPoint);
                                 // Console.WriteLine(closestIntersection.intersectionPoint);
                                 // Console.WriteLine("\n");
-                                if ((closestLightRayIntersection.intersectionPoint - closestIntersection.intersectionPoint).Length < 0.1)
-                                {
-                                    visibility = true;
-                                }
+                                // if ((closestLightRayIntersection.intersectionPoint - closestIntersection.intersectionPoint).Length < 0.1)
+                                // {
+                                //     visibility = true;
+                                // }
                             }
                             // lightRayIntersectionArray = new List<Intersection>();
 
@@ -336,7 +342,7 @@ namespace Template
                         }
                     }
 
-                    intersectionArray = new List<Intersection>();
+                    primaryIntersectionArray = new List<Intersection>();
                 }
 
                 Vector3 leftScreenPoint = camera.position + (float)0.5 * camera.width * leftDirection;
@@ -348,7 +354,7 @@ namespace Template
                             (int)Math.Round(rightScreenPoint[2]),
                             new Color3(1, 1, 1)
                 );
-                
+
 
 
             }
@@ -361,7 +367,7 @@ namespace Template
                 float cameraWidthScale = camera.width / screen.width;
                 float cameraHeightScale = camera.height / screen.height;
 
-                List<Intersection> intersectionArray = new List<Intersection>();
+                List<Intersection> primaryIntersectionArray = new List<Intersection>();
 
                 for (int heightPixel = 0; heightPixel <= screen.height; heightPixel++)
                 {
@@ -378,80 +384,69 @@ namespace Template
                             Intersection? intersectionResult = primitive.Intersect(ray);
                             if (intersectionResult != null)
                             {
-                                intersectionArray.Add(intersectionResult);
+                                primaryIntersectionArray.Add(intersectionResult);
                             }
-
-
                         }
 
-                        if (intersectionArray.Count != 0)
+                        if (primaryIntersectionArray.Count != 0)
                         {
-                            Intersection closestIntersection = intersectionArray
+                            Intersection closestPrimaryRayIntersection = primaryIntersectionArray
                                 .OrderBy(i => i.distanceToStartingPoint)
                                 .First();
-                            
 
-
-                            bool visibility = false;
-
-
+                            // Base color to fake ambient lighting
+                            Color3 pixelColor = new Color3(
+                                closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.R * scene.ambientRadiance.R,
+                                closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.G * scene.ambientRadiance.G,
+                                closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.B * scene.ambientRadiance.B);
 
                             foreach (LightSource lightSource in scene.lightSources)
                             {
                                 List<Intersection> lightRayIntersectionArray = new List<Intersection>();
-                                Vector3 lightRayNormal = closestIntersection.intersectionPoint - lightSource.position;
+                                Vector3 lightRayNormal = (closestPrimaryRayIntersection.intersectionPoint - lightSource.position).Normalized();
 
                                 Ray lightRay = new Ray(lightRayNormal, lightSource.position);
-                                foreach (GeometryPrimitive primitive in scene.primitives)
+                                foreach (GeometryPrimitive primitiveSecond in scene.primitives)
                                 {
-                                    Intersection? intersectionResult = primitive.Intersect(lightRay);
+                                    Intersection? intersectionResult = primitiveSecond.Intersect(lightRay);
                                     if (intersectionResult != null)
                                     {
-                                        // Should never be null as it should always intersection with the closestIntersection.intersectionPoint
                                         lightRayIntersectionArray.Add(intersectionResult);
                                     }
                                 }
 
-                                if (lightRayIntersectionArray.Count() != 0)
+                                if (lightRayIntersectionArray.Count != 0)
                                 {
                                     Intersection closestLightRayIntersection = lightRayIntersectionArray
                                         .OrderBy(i => i.distanceToStartingPoint)
                                         .First();
 
-                                    // closestLightRayIntersection
-
-
-                                    // Console.WriteLine(closestLightRayIntersection.intersectionPoint);
-                                    // Console.WriteLine(closestIntersection.intersectionPoint);
-                                    // Console.WriteLine("\n");
-                                    if ((closestLightRayIntersection.intersectionPoint - closestIntersection.intersectionPoint).Length < 0.1)
+                                    if (closestLightRayIntersection.intersectedPrimitive != closestPrimaryRayIntersection.intersectedPrimitive)
                                     {
-                                        visibility = true;
+                                        // This happens when the light ray is blocked by some other object, but the camera can see that point on the first object
+                                        continue;
                                     }
+
+                                    // shading logic
+                                    float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal));
+                                    // double specularReflectionRatio = Math.Max(0,Vector3.Dot(lightRay.normal, closestLightRayIntersection.surfaceNormal)); 
+                                    pixelColor = new Color3(
+                                        pixelColor.R + diffuseReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.R,
+                                        pixelColor.G + diffuseReflectionRatio * lightSource.color.G * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.G,
+                                        pixelColor.B + diffuseReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.B
+                                    );
+
+                                    // }
                                 }
                                 lightRayIntersectionArray = new List<Intersection>();
 
 
                             }
-                            Color3 color = new Color3(0, 0, 0);
-                            float colorScaleFactor = 0;
-                            if (visibility == true)
-                            {
-                                color = closestIntersection.intersectedPrimitive.color;
-                                // This is not optimal, as it takes the minimal distance between the primitive and the source, not the minimal distance of rays that actually hit the primitive.
-                                float minimalDistance = (closestIntersection.ray.startingPosition - closestIntersection.intersectedPrimitive.position).Length;
-                                colorScaleFactor = minimalDistance / (float)closestIntersection.distanceToStartingPoint - 1;
-                            }
 
-                            Color3 scaledColor = new Color3(
-                                closestIntersection.intersectedPrimitive.color.R * colorScaleFactor,
-                                closestIntersection.intersectedPrimitive.color.G * colorScaleFactor,
-                                closestIntersection.intersectedPrimitive.color.B * colorScaleFactor );
-                            screen.Plot(widthPixel, heightPixel, color);
+                            screen.Plot(widthPixel, heightPixel, pixelColor);
                         }
-                        // Console.WriteLine(closestIntersection.intersectionPoint);
 
-                        intersectionArray = new List<Intersection>();
+                        primaryIntersectionArray = new List<Intersection>();
                     }
                 }
 
@@ -462,6 +457,14 @@ namespace Template
 
     class MyApplication
     {
+        public static Color3 MultiplyComponentWise(Color3 a, Color3 b)
+        {
+            return new Color3(
+                a.R * b.R,
+                a.G * b.G,
+                a.B * b.B
+            );
+        }
 
         // member variables
         public Surface screen;
@@ -484,30 +487,31 @@ namespace Template
         private string timeString = "---- ms/frame";
 
         public bool debugMode = false;
+
+        SceneGeometry scene = new SceneGeometry(
+        [
+            new Sphere(new Vector3(200, 0, 450), 40, new Color3(0,1,0), new Color3(1,0,0), []),
+            new Sphere(new Vector3(100, 0, 300), 100,new Color3(1,0,0), new Color3(1,0,0), []),
+        ],
+        [
+            new LightSource(new Vector3(1000, 0, 900), new Color3(1,1,1) / 2),
+            new LightSource(new Vector3(300, 0, 800), new Color3(1,1,1) / 2)
+        ], new Color3((float)0, (float)0, (float)0));
+
+        Camera camera = new Camera(
+            new Vector3(400, 0, 650),
+            new Vector3(0, 0, -1),
+            new Vector3(0, 1, 0),
+            50,
+            10,
+            10.0);
+
         public void Tick()
         {
             timer.Restart();
             screen.Clear(new Color3((float)0.2, (float)0.2, (float)0.2));
 
-            SceneGeometry scene = new SceneGeometry(
-                [
-                new Sphere(new Vector3(400, 50, 50), 100, (1,0,0), []),
-                new Sphere(new Vector3(100, 0, 0), 100, (0,1,0), []),
-                ],
-                [
-                new LightSource(new Vector3(1000, 0, 300), 0.5),
-                new LightSource(new Vector3(100, 0, 500), 0.5)]);
-            Camera camera = new Camera(
-                new Vector3(300, 0, 300),
-                new Vector3(0, 0, -1),
-                new Vector3(0, 1, 0),
-                50,
-                10,
-                10.0);
             RayTracer rayTracer = new RayTracer(scene, camera, screen);
-
-
-
             rayTracer.Render(debugMode);
 
             deltaTime += timer.Elapsed;
