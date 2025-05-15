@@ -136,7 +136,12 @@ namespace Template
         {
             Plane examplePlane = new Plane((0, 0, 0), new Color3(0, 0, 1), new Color3(0, 0, 1), new Vector3(0, 1, 0), 10, 10, (0, 0, 0), []);
             Vector3 intersectionNormal = new Vector3(0, 0, -1);
+
+            Vector3 differenceVector = ray.startingPosition - position;
+            double Dterm = Vector3.Dot(ray.normal, position);
+
             return new Intersection(new Vector3(0, 0, 0), examplePlane, 5.0, intersectionNormal, ray);
+
         }
 
         public override void DebugDraw(Surface screen)
