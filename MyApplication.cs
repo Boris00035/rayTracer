@@ -126,7 +126,7 @@ namespace Template
         float width;
         float height;
 
-        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, Color3 color, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, closestIntersections)
+        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, closestIntersections)
         {
             this.normal = normal;
             this.width = width;
@@ -135,12 +135,20 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-            Plane examplePlane = new Plane((0, 0, 0), new Color3(0, 0, 1), new Color3(0, 0, 1), new Vector3(0, 1, 0), 10, 10, (0, 0, 0), []);
-            Vector3 intersectionNormal = new Vector3(0, 0, -1);
-            //Vector3 differenceVector = ray.startingPosition - position;
+            Vector3 differenceVector = ray.startingPosition - position;
             //double Dterm = Vector3.Dot(ray.normal, position);
+            //double zeroterm = Vector3.Dot(differenceVector, ray.normal)/differenceVector;
+            //double intersectionDistance = Math.Sqrt(Vector3.Dot(differenceVector, differenceVector));
 
-            return new Intersection(new Vector3(0, 0, 0), examplePlane, 5.0, intersectionNormal, ray);
+            double intersectionDistance = Vector3.Dot((this.position - ray.startingPosition), this.normal) / Vector3.Dot(differenceVector, this.normal);
+
+            Vector3 intersectionPoint = ray.normal * (float)intersectionDistance + ray.startingPosition;
+
+            Vector3 surfaceNormal = position - intersectionPoint;
+            surfaceNormal.Normalize();
+
+
+            return new Intersection(intersectionPoint, this, intersectionDistance, surfaceNormal, ray);
 
         }
 
@@ -536,11 +544,14 @@ namespace Template
 
             Vector3 basePosition = new Vector3(100, 0, 300);
             Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(tickCounter * 0.2), 0, basePosition[2] + 200*(float)Math.Sin(tickCounter * 0.2));
+            Vector3 BasePositionPlane = new Vector3(50, -200, 100);
+            Vector3 NormalVector = new Vector3(0, 1, 0);
 
             SceneGeometry scene = new SceneGeometry(
             [
                 new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2, []),
                 new Sphere(basePosition, 100,new Color3(1,0,0), new Color3(1,1,1) * 2, []),
+                new Plane(BasePositionPlane,new Color3(0,0,1), new Color3(0,1,0)*2, NormalVector, 20,20, [])
             ],
             [
                 new LightSource(new Vector3(600, 0, 500), new Color3(1,1,1) * 40000 ),
