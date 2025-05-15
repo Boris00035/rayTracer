@@ -2,12 +2,11 @@
 // Implement the plane debugDraw and Intersection methods
 // Change all Color3's to Vector3's and convert it when passing to screen.plot
 
-// Take user input to change the view and position of camera
-// implement shading
-
 // vragen: 
 // 1. Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
 // 2. in de slides wordt de radiance gedeeld door r^2, de afstand van de lichtbron tot het object, moet je niet ook delen door r'^2, de afstand van het object tot het "oog"? 
+// 3. hoe moet je user input nemen van de window?
+// 4. hoe moet je corrigeren voor de window size? 
 
 
 using Assimp;
@@ -77,7 +76,7 @@ namespace Template
         }
     }
 
-    // possible idea: make abstract Ray class, then two classes lightRay and cameraRay.
+    // possible idea: make abstract Ray class, then two classes lightRay and cameraRay. (shaderRay / mirrorRay?)
     // Then have every intersection a Ray field, and every (geometry) primitive a list of closestLightIntersections, and possibly also store the closestCameraIntersection 
 
     public class Intersection
@@ -107,15 +106,17 @@ namespace Template
         public Vector3 position;
         public Color3 diffuseColor;
         public Color3 specularColor;
-        // this field is currently not used, the closestlightintersection is just calculated when needed. But with some refactoring this can probably be extracted fairly cheaply from the "main" loop.
+        public bool mirrorValue;
+        // this field is currently not used, the closestlightintersection is just calculated when needed. But with some refactoring this can probably be extracted fairly cheaply from the "main" loop. This would be in the form of an object / light intersection matrix, not this array.
         public List<Intersection> closestLightIntersections;
 
-        protected GeometryPrimitive(Vector3 position, Color3 diffuseColor, Color3 specularColor, List<Intersection> closestLightIntersections)
+        protected GeometryPrimitive(Vector3 position, Color3 diffuseColor, Color3 specularColor, bool mirrorValue, List<Intersection> closestLightIntersections)
         {
             this.diffuseColor = diffuseColor;
             this.position = position;
             this.diffuseColor = diffuseColor;
             this.specularColor = specularColor;
+            this.mirrorValue = mirrorValue;
             this.closestLightIntersections = closestLightIntersections;
         }
     }
@@ -126,7 +127,7 @@ namespace Template
         float width;
         float height;
 
-        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, Color3 color, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, closestIntersections)
+        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, bool mirrorValue, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
         {
             this.normal = normal;
             this.width = width;
@@ -135,7 +136,7 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-            Plane examplePlane = new Plane((0, 0, 0), new Color3(0, 0, 1), new Color3(0, 0, 1), new Vector3(0, 1, 0), 10, 10, (0, 0, 0), []);
+            Plane examplePlane = new Plane((0, 0, 0), new Color3(0, 0, 1), new Color3(0, 0, 1), new Vector3(0, 1, 0), 10, 10, true, []);
             Vector3 intersectionNormal = new Vector3(0, 0, -1);
             return new Intersection(new Vector3(0, 0, 0), examplePlane, 5.0, intersectionNormal, ray);
         }
@@ -150,7 +151,7 @@ namespace Template
     {
         public double radius;
 
-        public Sphere(Vector3 position, double radius, Color3 diffuseColor, Color3 specularColor, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, closestIntersections)
+        public Sphere(Vector3 position, double radius, Color3 diffuseColor, Color3 specularColor, bool mirrorValue, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
         {
             this.radius = radius;
         }
@@ -237,9 +238,6 @@ namespace Template
             {
                 Vector3 focalPoint = camera.position - camera.lookAtDirection * (float)camera.focalLength;
 
-                // Console.WriteLine((camera.position[0],camera.position[2]));
-                // Console.WriteLine((focalPoint[0],focalPoint[2]));
-
                 Vector3 leftDirection = Vector3.Cross(camera.upDirection, camera.lookAtDirection);
                 leftDirection.Normalize();
 
@@ -255,9 +253,6 @@ namespace Template
 
                 for (int collumnPixel = -(int)Math.Round(0.5 * screen.width); collumnPixel <= (int)Math.Round(0.5 * screen.width); collumnPixel = collumnPixel + 5)
                 {
-                    // if (collumnPixel != - (int)Math.Round(0.5*screen.width)) {
-                    //     break;
-                    // }
                     Vector3 rayNormal = camera.position + cameraSizeStep * collumnPixel * leftDirection - focalPoint;
                     rayNormal.Normalize();
 
@@ -329,20 +324,9 @@ namespace Template
                                             (int)Math.Round(closestLightRayIntersection.intersectionPoint[0]),
                                             (int)Math.Round(closestLightRayIntersection.intersectionPoint[2]),
                                             new Color3(1, 1, 1));
-                                // Console.WriteLine(closestLightRayIntersection.intersectionPoint);
-                                // Console.WriteLine(closestIntersection.intersectionPoint);
-                                // Console.WriteLine("\n");
-                                // if ((closestLightRayIntersection.intersectionPoint - closestIntersection.intersectionPoint).Length < 0.1)
-                                // {
-                                //     visibility = true;
-                                // }
                             }
-                            // lightRayIntersectionArray = new List<Intersection>();
-
-
                         }
                     }
-
                     primaryIntersectionArray = new List<Intersection>();
                 }
 
@@ -355,9 +339,6 @@ namespace Template
                             (int)Math.Round(rightScreenPoint[2]),
                             new Color3(1, 1, 1)
                 );
-
-
-
             }
             else
             {
@@ -447,9 +428,6 @@ namespace Template
 
                                     int specularity = 50;
                                     float specularReflectionRatio = (float)Math.Pow(Math.Max(0, -1 * Vector3.Dot(reflectedVectorNormal, viewVectorNormal)), specularity) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
-                                    // Console.WriteLine(specularReflectionRatio);
-                                    // Console.WriteLine(diffuseReflectionRatio);
-                                    // Console.WriteLine("\n");
 
                                     Vector3 specularContribution = new Vector3(
                                         specularReflectionRatio * lightSource.color.R * closestLightRayIntersection.intersectedPrimitive.specularColor.R,
@@ -535,8 +513,8 @@ namespace Template
 
             SceneGeometry scene = new SceneGeometry(
             [
-                new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2, []),
-                new Sphere(basePosition, 100,new Color3(1,0,0), new Color3(1,1,1) * 2, []),
+                new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2, true, []),
+                new Sphere(basePosition, 100,new Color3(1,0,0), new Color3(1,1,1) * 2, false, []),
             ],
             [
                 new LightSource(new Vector3(600, 0, 500), new Color3(1,1,1) * 40000 ),
