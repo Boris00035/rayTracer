@@ -16,6 +16,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using System.Linq;
+using System.Threading.Tasks;
 
 
 namespace Template
@@ -375,13 +376,15 @@ namespace Template
 
                 for (int heightPixel = 0; heightPixel <= screen.height; heightPixel++)
                 {
-                    for (int widthPixel = 0; widthPixel <= screen.width; widthPixel++)
+                    Parallel.For(0, screen.width + 1,
+                    widthPixel =>
                     {
-
                         Vector3 rayNormal = camera.position + cameraWidthScale * ((int)Math.Round(0.5 * screen.width) - widthPixel) * leftDirection + cameraHeightScale * ((int)Math.Round(0.5 * screen.height) - heightPixel) * camera.upDirection - focalPoint;
                         rayNormal.Normalize();
 
                         Ray ray = new Ray(rayNormal, focalPoint);
+
+                        List<Intersection> primaryIntersectionArray = new List<Intersection>();
 
                         foreach (GeometryPrimitive primitive in scene.primitives)
                         {
@@ -443,7 +446,7 @@ namespace Template
 
                                     Vector3 lightVector = lightRay.normal * (float)closestLightRayIntersection.distanceToStartingPoint;
                                     Vector3 reflectedVectorNormal = (lightVector - 2 * Vector3.Dot(lightVector, closestLightRayIntersection.surfaceNormal) * closestLightRayIntersection.surfaceNormal).Normalized();
-                                
+
                                     Vector3 viewVectorNormal = (closestPrimaryRayIntersection.ray.normal * (float)closestPrimaryRayIntersection.distanceToStartingPoint).Normalized();
 
                                     int specularity = 50;
@@ -471,7 +474,7 @@ namespace Template
                                         pixelColor.B / (1 + pixelColor.B)
                                     );
 
-                                    
+
                                 }
                                 lightRayIntersectionArray = new List<Intersection>();
 
@@ -480,9 +483,7 @@ namespace Template
 
                             screen.Plot(widthPixel, heightPixel, pixelColor);
                         }
-
-                        primaryIntersectionArray = new List<Intersection>();
-                    }
+                    });
                 }
 
             }
@@ -534,7 +535,7 @@ namespace Template
 
 
             Vector3 basePosition = new Vector3(100, 0, 300);
-            Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(0.2), 0, basePosition[2] + 200*(float)Math.Sin(0.2));
+            Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(tickCounter * 0.2), 0, basePosition[2] + 200*(float)Math.Sin(tickCounter * 0.2));
 
             SceneGeometry scene = new SceneGeometry(
             [
