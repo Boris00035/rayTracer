@@ -508,7 +508,7 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = false;
+        public bool debugMode = true;
 
 
         Camera camera = new Camera(
@@ -530,7 +530,7 @@ namespace Template
 
 
             Vector3 basePosition = new Vector3(100, 0, 300);
-            Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(tickCounter * 0.2), 0, basePosition[2] + 200*(float)Math.Sin(tickCounter * 0.2));
+            Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(0.2), 0, basePosition[2] + 200*(float)Math.Sin(0.2));
 
             SceneGeometry scene = new SceneGeometry(
             [
