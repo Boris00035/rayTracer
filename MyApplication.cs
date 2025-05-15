@@ -54,7 +54,7 @@ namespace Template
         public void DebugDraw(Surface screen)
         {
             if (position[0] >=0 && position[2] >=0) {
-            screen.Bar((int)Math.Round(position[0]) - 1,
+            screen.Line((int)Math.Round(position[0]) - 1,
                         (int)Math.Round(position[2]) - 1,
                         (int)Math.Round(position[0]) + 1,
                         (int)Math.Round(position[2]) + 1,
@@ -242,7 +242,7 @@ namespace Template
                 Vector3 leftDirection = Vector3.Cross(camera.upDirection, camera.lookAtDirection);
                 leftDirection.Normalize();
 
-                screen.Bar((int)Math.Round(focalPoint[0]) - 1,
+                screen.Line((int)Math.Round(focalPoint[0]) - 1,
                         (int)Math.Round(focalPoint[2]) - 1,
                         (int)Math.Round(focalPoint[0]) + 1,
                         (int)Math.Round(focalPoint[2]) + 1,
