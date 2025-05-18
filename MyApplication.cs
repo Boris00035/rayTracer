@@ -135,10 +135,7 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-            Vector3 differenceVector = ray.startingPosition - position;
-            //double Dterm = Vector3.Dot(ray.normal, position);
-            //double zeroterm = Vector3.Dot(differenceVector, ray.normal)/differenceVector;
-            //double intersectionDistance = Math.Sqrt(Vector3.Dot(differenceVector, differenceVector));
+            Vector3 differenceVector = ray.startingPosition - position;       
 
             double intersectionDistance = Vector3.Dot((this.position - ray.startingPosition), this.normal) / Vector3.Dot(differenceVector, this.normal);
 
