@@ -1,5 +1,5 @@
 // TODO:
-// Implement the plane debugDraw and Intersection methods
+// Implement the plane debugDraw method
 // Change all Color3's to Vector3's and convert it when passing to screen.plot
 
 // vragen: 
@@ -145,9 +145,14 @@ namespace Template
             // Vector3 surfaceNormal = position - intersectionPoint;
             // surfaceNormal.Normalize();
 
-
-            return new Intersection(intersectionPoint, this, intersectionDistance, normal, ray);
-
+            if (intersectionDistance <= 0)
+            {
+                return null;
+            }
+            else
+            {
+                return new Intersection(intersectionPoint, this, intersectionDistance, -1 * normal, ray);
+            }
         }
 
         public override void DebugDraw(Surface screen)
@@ -186,6 +191,10 @@ namespace Template
                 Math.Abs((-1 * linearTerm + Math.Sqrt(discriminant)) / (2 * quadraticTerm)),
                 Math.Abs((-1 * linearTerm - Math.Sqrt(discriminant)) / (2 * quadraticTerm))
                 );
+            }
+
+            if (intersectionDistance <= 0) {
+                return null;
             }
 
             Vector3 intersectionPoint = ray.normal * (float)intersectionDistance + ray.startingPosition;
@@ -457,6 +466,11 @@ namespace Template
                                         pixelColor.B / (1 + pixelColor.B)
                                     );
 
+                                    // if (closestPrimaryRayIntersection.intersectedPrimitive.GetType() == typeof(Plane))
+                                    // {
+                                    //     Console.WriteLine(Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal));
+                                    // }
+
 
                                 }
                                 lightRayIntersectionArray = new List<Intersection>();
@@ -496,7 +510,7 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = true;
+        public bool debugMode = false;
 
 
         Camera camera = new Camera(
@@ -519,19 +533,19 @@ namespace Template
 
             Vector3 basePosition = new Vector3(100, 0, 300);
             Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(0.2), 0, basePosition[2] + 200*(float)Math.Sin(0.2));
-            Vector3 BasePositionPlane = new Vector3(50, 200, 100);
+            Vector3 BasePositionPlane = new Vector3(50, -100, 100);
             Vector3 NormalVector = new Vector3(0, 1, 0);
 
             SceneGeometry scene = new SceneGeometry(
             [
                 new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2,false, []),
-                new Sphere(basePosition, 100,new Color3(1,0,0), new Color3(1,1,1) * 2,false, []),
-                new Plane(BasePositionPlane,new Color3(0,0,1), new Color3(0,1,0) * 2, NormalVector, 20,20, false, [])
+                new Sphere(basePosition, 100, new Color3(1,0,0), new Color3(1,1,1) * 2,false, []),
+                new Plane(BasePositionPlane, new Color3(1,1,0), new Color3(1,1,1) * 2, NormalVector, 20,20, false, [])
             ],
             [
                 new LightSource(new Vector3(600, 0, 500), new Color3(1,1,1) * 40000 ),
                 new LightSource(new Vector3(300, 0, 800), new Color3(1,1,1) * 40000 )
-            ], new Color3((float)0, (float)0, (float)0));
+            ], new Color3((float)0.1, (float)0.1, (float)0.1));
 
             RayTracer rayTracer = new RayTracer(scene, camera, screen);
             rayTracer.Render(debugMode);
