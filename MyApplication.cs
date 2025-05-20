@@ -1,12 +1,9 @@
 // TODO:
 // Implement the plane debugDraw method
-// Change all Color3's to Vector3's and convert it when passing to screen.plot
 
 // vragen: 
 // 1. Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
-// 2. in de slides wordt de radiance gedeeld door r^2, de afstand van de lichtbron tot het object, moet je niet ook delen door r'^2, de afstand van het object tot het "oog"? 
-// 3. hoe moet je user input nemen van de window?
-// 4. hoe moet je corrigeren voor de window size? 
+// 2. hoe moet je corrigeren voor de window size? 
 
 
 using Assimp;
@@ -16,6 +13,9 @@ using System.Globalization;
 using System.Security.Cryptography.X509Certificates;
 using System.Linq;
 using System.Threading.Tasks;
+
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.GraphicsLibraryFramework; 
 
 
 namespace Template
@@ -38,6 +38,26 @@ namespace Template
             this.height = height;
             this.focalLength = focalLength;
         }
+
+        public void movement(KeyboardKeyEventArgs e)
+        {
+            if (e.Key == Keys.W)
+            {
+                position[2] -= 5;
+            }
+            if (e.Key == Keys.S)
+            {
+                position[2] += 5;
+            }
+            if (e.Key == Keys.A)
+            {
+                position[0] -= 5;
+            }
+            if (e.Key == Keys.D)
+            {
+                position[0] += 5;
+            }
+        }
     }
 
     public class LightSource
@@ -53,12 +73,13 @@ namespace Template
 
         public void DebugDraw(Surface screen)
         {
-            if (position[0] >=0 && position[2] >=0) {
-            screen.Line((int)Math.Round(position[0]) - 1,
-                        (int)Math.Round(position[2]) - 1,
-                        (int)Math.Round(position[0]) + 1,
-                        (int)Math.Round(position[2]) + 1,
-                        new Color3(0, 1, 1));
+            if (position[0] >= 0 && position[2] >= 0)
+            {
+                screen.Line((int)Math.Round(position[0]) - 1,
+                            (int)Math.Round(position[2]) - 1,
+                            (int)Math.Round(position[0]) + 1,
+                            (int)Math.Round(position[2]) + 1,
+                            new Color3(0, 1, 1));
             }
         }
 
@@ -193,7 +214,8 @@ namespace Template
                 );
             }
 
-            if (intersectionDistance <= 0) {
+            if (intersectionDistance <= 0)
+            {
                 return null;
             }
 
@@ -369,6 +391,7 @@ namespace Template
 
                 List<Intersection> primaryIntersectionArray = new List<Intersection>();
 
+                // Parallel.For(0, screen.height + 1, heightPixel =>
                 for (int heightPixel = 0; heightPixel <= screen.height; heightPixel++)
                 {
                     Parallel.For(0, screen.width + 1,
@@ -425,18 +448,16 @@ namespace Template
                                         .OrderBy(i => i.distanceToStartingPoint)
                                         .First();
 
-                                    if (closestLightRayIntersection.intersectedPrimitive != closestPrimaryRayIntersection.intersectedPrimitive)
-                                    {
-                                        // This happens when the light ray is blocked by some other object, but the camera can see that point on the first object
+                                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.01)  {
                                         continue;
                                     }
 
-                                    // shading logic                                     
-                                    float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestPrimaryRayIntersection.distanceToStartingPoint, 2);
+                                    // shading logic                               
+                                    float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
 
                                     Vector3 diffuseContribution = new Vector3(
                                         diffuseReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.R,
-                                        diffuseReflectionRatio * lightSource.color.G * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.G,
+                                        diffuseReflectionRatio * lightSource.color.G * closestLightRayIntersection.intersectedPrimitive.diffuseColor.G,
                                         diffuseReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.B);
 
                                     Vector3 lightVector = lightRay.normal * (float)closestLightRayIntersection.distanceToStartingPoint;
@@ -448,9 +469,9 @@ namespace Template
                                     float specularReflectionRatio = (float)Math.Pow(Math.Max(0, -1 * Vector3.Dot(reflectedVectorNormal, viewVectorNormal)), specularity) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
 
                                     Vector3 specularContribution = new Vector3(
-                                        specularReflectionRatio * lightSource.color.R * closestLightRayIntersection.intersectedPrimitive.specularColor.R,
-                                        specularReflectionRatio * lightSource.color.G * closestLightRayIntersection.intersectedPrimitive.specularColor.G,
-                                        specularReflectionRatio * lightSource.color.B * closestLightRayIntersection.intersectedPrimitive.specularColor.B
+                                        specularReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.R,
+                                        specularReflectionRatio * lightSource.color.G * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.G,
+                                        specularReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.B
                                     );
 
 
@@ -465,12 +486,6 @@ namespace Template
                                         pixelColor.G / (1 + pixelColor.G),
                                         pixelColor.B / (1 + pixelColor.B)
                                     );
-
-                                    // if (closestPrimaryRayIntersection.intersectedPrimitive.GetType() == typeof(Plane))
-                                    // {
-                                    //     Console.WriteLine(Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal));
-                                    // }
-
 
                                 }
                                 lightRayIntersectionArray = new List<Intersection>();
@@ -494,60 +509,73 @@ namespace Template
         public Surface screen;
         private readonly Stopwatch timer = new();
         // constructor
+        public Camera camera;
+        public SceneGeometry scene;
+        public RayTracer rayTracer;
+
         public MyApplication(Surface screen)
         {
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             this.screen = screen;
+
+            camera = new Camera(
+                new Vector3(400, 0, 650),
+                new Vector3(0, 0, -1),
+                new Vector3(0, 1, 0),
+                50,
+                10,
+                10.0);
+
+
+            scene = new SceneGeometry(
+            [
+                new Sphere(
+                    new Vector3(100, 0, 300),
+                    40,
+                    new Color3(0,1,0),
+                    new Color3(1,1,1) * 2,
+                    false, []),
+                new Sphere(
+                    new Vector3(100 + 200 * (float)Math.Cos(0.2), 0, 300 + 200 * (float)Math.Sin(0.2)),
+                    100,
+                    new Color3(1,0,0),
+                    new Color3(1,1,1) * 2,
+                    false, []),
+                new Plane(
+                    new Vector3(50, -100, 100),
+                    new Color3(1,1,0),
+                    new Color3(1,1,1) * 2,
+                    new Vector3(0, 1, 0),
+                    20,
+                    20,
+                    false, [])
+            ],
+            [
+                new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 400000 ),
+                new LightSource(new Vector3(300, 500, 800), new Color3(1,1,1) * 400000 )
+            ], new Color3((float)0, (float)0, (float)0));
+            rayTracer = new RayTracer(scene, camera, screen);
         }
         // initialize
+
         public void Init()
         {
             // (optional) example of how you can load a triangle mesh in any file format supported by Assimp
             //object? mesh = Util.ImportMesh("../../../assets/cube.obj");
         }
+
         // tick: renders one frame
         private TimeSpan deltaTime = new();
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = false;
-
-
-        Camera camera = new Camera(
-            new Vector3(400, 0, 650),
-            new Vector3(0, 0, -1),
-            new Vector3(0, 1, 0),
-            50,
-            10,
-            10.0);
-
-        int tickCounter = 0;
+        public static bool debugMode = false;
 
         public void Tick()
         {
-            tickCounter++;
             timer.Restart();
             screen.Clear(new Color3((float)0.2, (float)0.2, (float)0.2));
 
-
-
-            Vector3 basePosition = new Vector3(100, 0, 300);
-            Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(0.2), 0, basePosition[2] + 200*(float)Math.Sin(0.2));
-            Vector3 BasePositionPlane = new Vector3(50, -100, 100);
-            Vector3 NormalVector = new Vector3(0, 1, 0);
-
-            SceneGeometry scene = new SceneGeometry(
-            [
-                new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2,false, []),
-                new Sphere(basePosition, 100, new Color3(1,0,0), new Color3(1,1,1) * 2,false, []),
-                new Plane(BasePositionPlane, new Color3(1,1,0), new Color3(1,1,1) * 2, NormalVector, 20,20, false, [])
-            ],
-            [
-                new LightSource(new Vector3(600, 0, 500), new Color3(1,1,1) * 40000 ),
-                new LightSource(new Vector3(300, 0, 800), new Color3(1,1,1) * 40000 )
-            ], new Color3((float)0.1, (float)0.1, (float)0.1));
-
-            RayTracer rayTracer = new RayTracer(scene, camera, screen);
             rayTracer.Render(debugMode);
 
             deltaTime += timer.Elapsed;
