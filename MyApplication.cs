@@ -1,5 +1,6 @@
 // TODO:
 // Implement the plane debugDraw method
+// Fixen dat je meerdere knoppen tegelijkertijd in kan drukken om schuin te bewegen
 
 // vragen: 
 // 1. Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
