@@ -4,6 +4,7 @@
 // implement triangle primitive
 // template.cs handmatig updaten
 // fixen van rotation drift in rotation om de lookAtDirection
+// fixen van schaduws zien wanneer de camera achter de ballen is (primaryRays intersected door naar achter te gaan?)
 
 // vragen: 
 // Wat is interpolatedNormals bij de bonuspunten?
