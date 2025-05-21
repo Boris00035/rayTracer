@@ -1,23 +1,17 @@
 // TODO:
 // Implement the plane debugDraw method
-// Fixen dat je meerdere knoppen tegelijkertijd in kan drukken om schuin te bewegen
+// implement plane of arbitrary size
+// implement triangle primitive
 // template.cs handmatig updaten
+// fixen van rotation drift in rotation om de lookAtDirection
 
 // vragen: 
-// 1. Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
-// 2. hoe moet je corrigeren voor de window size? 
+// Wat is interpolatedNormals bij de bonuspunten?
+// is een parallel for genoeg om het parallel bonus punt te krijgen?
 
-
-using Assimp;
 using OpenTK.Mathematics;
 using System.Diagnostics;
 using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
-using System.Linq;
-using System.Threading.Tasks;
-
-using OpenTK.Windowing.Common;
-using OpenTK.Windowing.GraphicsLibraryFramework; 
 
 
 namespace Template
@@ -30,8 +24,9 @@ namespace Template
         public float width;
         public float height;
         public double focalLength;
+        public bool orientationLock;
 
-        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength)
+        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength, bool orientationLock)
         {
             this.position = position;
             this.lookAtDirection = lookAtDirection;
@@ -39,6 +34,7 @@ namespace Template
             this.width = width;
             this.height = height;
             this.focalLength = focalLength;
+            this.orientationLock = orientationLock;
         }
     }
 
@@ -428,7 +424,8 @@ namespace Template
                                         .OrderBy(i => i.distanceToStartingPoint)
                                         .First();
 
-                                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.1)  {
+                                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.1)
+                                    {
                                         continue;
                                     }
 
@@ -499,12 +496,13 @@ namespace Template
             this.screen = screen;
 
             camera = new Camera(
-                new Vector3(400, 0, 650),
+                new Vector3(200, 0, 2000),
                 new Vector3(0, 0, -1),
                 new Vector3(0, 1, 0),
                 50,
                 10,
-                10.0);
+                56.0,
+                true);
 
 
             scene = new SceneGeometry(
@@ -549,8 +547,10 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = true;
-
+        public bool debugMode = false;
+        public bool debugData = false;
+        double PI = 3.1415926535897932384626433832795028;
+        
         public void Tick()
         {
             timer.Restart();
@@ -569,7 +569,14 @@ namespace Template
                 deltaTime = TimeSpan.Zero;
             }
 
-            screen.PrintOutlined(timeString, 2, 2, Color4.White);
+            if (debugData == true)
+            {
+                screen.PrintOutlined(timeString, 2, 2, Color4.White);
+
+                double fieldOfView = 2 * Math.Atan(screen.width / (2 * camera.focalLength)) * 180 / PI;
+                screen.PrintOutlined("field of view:" + double.Round(fieldOfView).ToString() + "degrees", 300, 2, Color4.White);
+                screen.PrintOutlined("position:" + camera.position[0].ToString() + "," + camera.position[1].ToString() + "," + camera.position[2].ToString(), 2, 25, Color4.White);
+            }
         }
 
 

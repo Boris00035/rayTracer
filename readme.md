@@ -39,3 +39,10 @@
 
 # Notes
 * Lights requirement: We support an arbitrary amount of light sources.
+* Controls: 
+  * WASD for movement in xy plane. 
+  * Shift and Space for movement in z direction.
+  * F and R for increasing / decreasing FOV.
+  * M to toggle debugmode.
+  * N to toggle debugdata.
+  * O to toggle orientationLock.
