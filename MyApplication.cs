@@ -1,6 +1,7 @@
 // TODO:
 // Implement the plane debugDraw method
 // Fixen dat je meerdere knoppen tegelijkertijd in kan drukken om schuin te bewegen
+// template.cs handmatig updaten
 
 // vragen: 
 // 1. Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
@@ -39,26 +40,6 @@ namespace Template
             this.height = height;
             this.focalLength = focalLength;
         }
-
-        public void movement(KeyboardKeyEventArgs e)
-        {
-            if (e.Key == Keys.W)
-            {
-                position[2] -= 5;
-            }
-            if (e.Key == Keys.S)
-            {
-                position[2] += 5;
-            }
-            if (e.Key == Keys.A)
-            {
-                position[0] -= 5;
-            }
-            if (e.Key == Keys.D)
-            {
-                position[0] += 5;
-            }
-        }
     }
 
     public class LightSource
@@ -83,7 +64,6 @@ namespace Template
                             new Color3(0, 1, 1));
             }
         }
-
     }
 
     public class Ray
@@ -191,7 +171,6 @@ namespace Template
         {
             this.radius = radius;
         }
-
 
         public override Intersection? Intersect(Ray ray)
         {
@@ -449,7 +428,7 @@ namespace Template
                                         .OrderBy(i => i.distanceToStartingPoint)
                                         .First();
 
-                                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.01)  {
+                                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.1)  {
                                         continue;
                                     }
 
@@ -570,7 +549,7 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public static bool debugMode = false;
+        public bool debugMode = true;
 
         public void Tick()
         {
@@ -590,8 +569,9 @@ namespace Template
                 deltaTime = TimeSpan.Zero;
             }
 
-
             screen.PrintOutlined(timeString, 2, 2, Color4.White);
         }
+
+
     }
 }
