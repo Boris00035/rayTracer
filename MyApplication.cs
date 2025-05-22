@@ -1,21 +1,18 @@
 // TODO:
-// Implement the plane debugDraw and Intersection methods
-// Change all Color3's to Vector3's and convert it when passing to screen.plot
+// Implement the plane debugDraw method
+// implement plane of arbitrary size
+// implement triangle primitive
+// template.cs handmatig updaten
+// fixen van rotation drift in rotation om de lookAtDirection
+// fixen van schaduws zien wanneer de camera achter de ballen is (primaryRays intersected door naar achter te gaan?)
 
 // vragen: 
-// 1. Waarom moet de nearest primitive in de intersection class? hoe werkt dat? (staat in de opdracht pdf)
-// 2. in de slides wordt de radiance gedeeld door r^2, de afstand van de lichtbron tot het object, moet je niet ook delen door r'^2, de afstand van het object tot het "oog"? 
-// 3. hoe moet je user input nemen van de window?
-// 4. hoe moet je corrigeren voor de window size? 
+// Wat is interpolatedNormals bij de bonuspunten?
+// is een parallel for genoeg om het parallel bonus punt te krijgen?
 
-
-using Assimp;
 using OpenTK.Mathematics;
 using System.Diagnostics;
 using System.Globalization;
-using System.Security.Cryptography.X509Certificates;
-using System.Linq;
-using System.Threading.Tasks;
 
 
 namespace Template
@@ -28,8 +25,9 @@ namespace Template
         public float width;
         public float height;
         public double focalLength;
+        public bool orientationLock;
 
-        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength)
+        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength, bool orientationLock)
         {
             this.position = position;
             this.lookAtDirection = lookAtDirection;
@@ -37,6 +35,7 @@ namespace Template
             this.width = width;
             this.height = height;
             this.focalLength = focalLength;
+            this.orientationLock = orientationLock;
         }
     }
 
@@ -53,15 +52,15 @@ namespace Template
 
         public void DebugDraw(Surface screen)
         {
-            if (position[0] >=0 && position[2] >=0) {
-            screen.Line((int)Math.Round(position[0]) - 1,
-                        (int)Math.Round(position[2]) - 1,
-                        (int)Math.Round(position[0]) + 1,
-                        (int)Math.Round(position[2]) + 1,
-                        new Color3(0, 1, 1));
+            if (position[0] >= 0 && position[2] >= 0)
+            {
+                screen.Line((int)Math.Round(position[0]) - 1,
+                            (int)Math.Round(position[2]) - 1,
+                            (int)Math.Round(position[0]) + 1,
+                            (int)Math.Round(position[2]) + 1,
+                            new Color3(0, 1, 1));
             }
         }
-
     }
 
     public class Ray
@@ -169,6 +168,23 @@ namespace Template
 
             Vector3 surfaceNormal = this.normal; 
             return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
+            // Vector3 differenceVector = ray.startingPosition - position;       
+
+            double intersectionDistance = Vector3.Dot(position - ray.startingPosition, normal) / Vector3.Dot(ray.normal, normal);
+
+            Vector3 intersectionPoint = ray.normal * (float)intersectionDistance + ray.startingPosition;
+
+            // Vector3 surfaceNormal = position - intersectionPoint;
+            // surfaceNormal.Normalize();
+
+            if (intersectionDistance <= 0)
+            {
+                return null;
+            }
+            else
+            {
+                return new Intersection(intersectionPoint, this, intersectionDistance, -1 * normal, ray);
+            }
         }
 
 
@@ -206,7 +222,6 @@ namespace Template
             this.radius = radius;
         }
 
-
         public override Intersection? Intersect(Ray ray)
         {
             Vector3 differenceVector = ray.startingPosition - position;
@@ -227,6 +242,11 @@ namespace Template
                 Math.Abs((-1 * linearTerm + Math.Sqrt(discriminant)) / (2 * quadraticTerm)),
                 Math.Abs((-1 * linearTerm - Math.Sqrt(discriminant)) / (2 * quadraticTerm))
                 );
+            }
+
+            if (intersectionDistance <= 0)
+            {
+                return null;
             }
 
             Vector3 intersectionPoint = ray.normal * (float)intersectionDistance + ray.startingPosition;
@@ -401,6 +421,7 @@ namespace Template
 
                 List<Intersection> primaryIntersectionArray = new List<Intersection>();
 
+                // Parallel.For(0, screen.height + 1, heightPixel =>
                 for (int heightPixel = 0; heightPixel <= screen.height; heightPixel++)
                 {
                     Parallel.For(0, screen.width + 1,
@@ -457,18 +478,17 @@ namespace Template
                                         .OrderBy(i => i.distanceToStartingPoint)
                                         .First();
 
-                                    if (closestLightRayIntersection.intersectedPrimitive != closestPrimaryRayIntersection.intersectedPrimitive)
+                                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.1)
                                     {
-                                        // This happens when the light ray is blocked by some other object, but the camera can see that point on the first object
                                         continue;
                                     }
 
-                                    // shading logic                                     
-                                    float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestPrimaryRayIntersection.distanceToStartingPoint, 2);
+                                    // shading logic                               
+                                    float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
 
                                     Vector3 diffuseContribution = new Vector3(
                                         diffuseReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.R,
-                                        diffuseReflectionRatio * lightSource.color.G * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.G,
+                                        diffuseReflectionRatio * lightSource.color.G * closestLightRayIntersection.intersectedPrimitive.diffuseColor.G,
                                         diffuseReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.B);
 
                                     Vector3 lightVector = lightRay.normal * (float)closestLightRayIntersection.distanceToStartingPoint;
@@ -480,9 +500,9 @@ namespace Template
                                     float specularReflectionRatio = (float)Math.Pow(Math.Max(0, -1 * Vector3.Dot(reflectedVectorNormal, viewVectorNormal)), specularity) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
 
                                     Vector3 specularContribution = new Vector3(
-                                        specularReflectionRatio * lightSource.color.R * closestLightRayIntersection.intersectedPrimitive.specularColor.R,
-                                        specularReflectionRatio * lightSource.color.G * closestLightRayIntersection.intersectedPrimitive.specularColor.G,
-                                        specularReflectionRatio * lightSource.color.B * closestLightRayIntersection.intersectedPrimitive.specularColor.B
+                                        specularReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.R,
+                                        specularReflectionRatio * lightSource.color.G * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.G,
+                                        specularReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.B
                                     );
 
 
@@ -497,7 +517,6 @@ namespace Template
                                         pixelColor.G / (1 + pixelColor.G),
                                         pixelColor.B / (1 + pixelColor.B)
                                     );
-
 
                                 }
                                 lightRayIntersectionArray = new List<Intersection>();
@@ -521,38 +540,73 @@ namespace Template
         public Surface screen;
         private readonly Stopwatch timer = new();
         // constructor
+        public Camera camera;
+        public SceneGeometry scene;
+        public RayTracer rayTracer;
+
         public MyApplication(Surface screen)
         {
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             this.screen = screen;
+
+            camera = new Camera(
+                new Vector3(200, 0, 2000),
+                new Vector3(0, 0, -1),
+                new Vector3(0, 1, 0),
+                50,
+                10,
+                56.0,
+                true);
+
+
+            scene = new SceneGeometry(
+            [
+                new Sphere(
+                    new Vector3(100, 0, 300),
+                    40,
+                    new Color3(0,1,0),
+                    new Color3(1,1,1) * 2,
+                    false, []),
+                new Sphere(
+                    new Vector3(100 + 200 * (float)Math.Cos(0.2), 0, 300 + 200 * (float)Math.Sin(0.2)),
+                    100,
+                    new Color3(1,0,0),
+                    new Color3(1,1,1) * 2,
+                    false, []),
+                new Plane(
+                    new Vector3(50, -100, 100),
+                    new Color3(1,1,0),
+                    new Color3(1,1,1) * 2,
+                    new Vector3(0, 1, 0),
+                    20,
+                    20,
+                    false, [])
+            ],
+            [
+                new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 400000 ),
+                new LightSource(new Vector3(300, 500, 800), new Color3(1,1,1) * 400000 )
+            ], new Color3((float)0, (float)0, (float)0));
+            rayTracer = new RayTracer(scene, camera, screen);
         }
         // initialize
+
         public void Init()
         {
             // (optional) example of how you can load a triangle mesh in any file format supported by Assimp
             //object? mesh = Util.ImportMesh("../../../assets/cube.obj");
         }
+
         // tick: renders one frame
         private TimeSpan deltaTime = new();
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
         public bool debugMode = false;
-
-
-        Camera camera = new Camera(
-            new Vector3(400, 0, 650),
-            new Vector3(0, 0, -1),
-            new Vector3(0, 1, 0),
-            50,
-            10,
-            10.0);
-
-        int tickCounter = 0;
-
+        public bool debugData = false;
+        double PI = 3.1415926535897932384626433832795028;
+        
         public void Tick()
         {
-            tickCounter++;
             timer.Restart();
             screen.Clear(new Color3((float)0.2, (float)0.2, (float)0.2));
 
@@ -588,8 +642,16 @@ namespace Template
                 deltaTime = TimeSpan.Zero;
             }
 
+            if (debugData == true)
+            {
+                screen.PrintOutlined(timeString, 2, 2, Color4.White);
 
-            screen.PrintOutlined(timeString, 2, 2, Color4.White);
+                double fieldOfView = 2 * Math.Atan(screen.width / (2 * camera.focalLength)) * 180 / PI;
+                screen.PrintOutlined("field of view:" + double.Round(fieldOfView).ToString() + "degrees", 300, 2, Color4.White);
+                screen.PrintOutlined("position:" + camera.position[0].ToString() + "," + camera.position[1].ToString() + "," + camera.position[2].ToString(), 2, 25, Color4.White);
+            }
         }
+
+
     }
 }
