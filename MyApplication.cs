@@ -135,44 +135,13 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-            // inprduct berekenen met de straal en normaal vector
-            double denom = Vector3.Dot(ray.normal, this.normal);
-            if (Math.Abs(denom) < 0) return null; 
-
-            // afstand t zoals deze staat beschreven in de pwp
-            double t = Vector3.Dot(position - ray.startingPosition, this.normal) / denom;
-            if (t < 0) return null; 
-
-           
-            Vector3 intersectionPoint = ray.startingPosition + ray.normal * (float)t;
-
-
-            // basisvectoren berekenen
-            Vector3 u = Vector3.Cross(this.normal, new Vector3(0, 1, 0));
-            float uLength = (float)Math.Sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z);
-            if (uLength < 1e-6f) // dit werkt beter bij float ofzo
-                u = Vector3.Cross(this.normal, new Vector3(1, 0, 0));
-            u = Vector3.Normalize(u);
-
-            Vector3 v = Vector3.Normalize(Vector3.Cross(this.normal, u));
-
-            // afstand naar snijpunt
-            Vector3 localVector = intersectionPoint - position;
-            float uDistance = Vector3.Dot(localVector, u);
-            float vDistance = Vector3.Dot(localVector, v);
-
-            // checken of snijpunt binnen vlak valt
-            if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
-                return null; // Buiten het vlak
-
-
-            Vector3 surfaceNormal = this.normal; 
-            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
             // Vector3 differenceVector = ray.startingPosition - position;       
 
             double intersectionDistance = Vector3.Dot(position - ray.startingPosition, normal) / Vector3.Dot(ray.normal, normal);
 
-            Vector3 intersectionPoint = ray.normal * (float)intersectionDistance + ray.startingPosition;
+            Vector3 surfaceNormal = this.normal; 
+            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
+            // Vector3 differenceVector = ray.startingPosition - position;       
 
             // Vector3 surfaceNormal = position - intersectionPoint;
             // surfaceNormal.Normalize();
@@ -610,25 +579,6 @@ namespace Template
             timer.Restart();
             screen.Clear(new Color3((float)0.2, (float)0.2, (float)0.2));
 
-
-
-            Vector3 basePosition = new Vector3(100, 0, 300);
-            Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(tickCounter * 0.2), 0, basePosition[2] + 200*(float)Math.Sin(tickCounter * 0.2));
-            Vector3 BasePositionPlane = new Vector3(0,0,0);
-            Vector3 NormalVector = new Vector3(0, 0, 1);
-
-            SceneGeometry scene = new SceneGeometry(
-            [
-                new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2, true,[]),
-                new Sphere(basePosition, 100,new Color3(1,0,0), new Color3(1,1,1) * 2, true, []),
-                new Plane(BasePositionPlane,new Color3(0,0,1), new Color3(0,1,0)*2, NormalVector, 50,50,true, [])
-            ],
-            [
-                new LightSource(new Vector3(600, 0, 500), new Color3(1,1,1) * 40000 ),
-                new LightSource(new Vector3(300, 0, 800), new Color3(1,1,1) * 40000 )
-            ], new Color3((float)0, (float)0, (float)0));
-
-            RayTracer rayTracer = new RayTracer(scene, camera, screen);
             rayTracer.Render(debugMode);
 
             deltaTime += timer.Elapsed;
