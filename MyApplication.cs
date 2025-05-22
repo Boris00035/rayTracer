@@ -136,23 +136,64 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-            Vector3 differenceVector = ray.startingPosition - position;       
+            // inprduct berekenen met de straal en normaal vector
+            double denom = Vector3.Dot(ray.normal, this.normal);
+            if (Math.Abs(denom) < 0) return null; 
 
-            double intersectionDistance = Vector3.Dot((this.position - ray.startingPosition), this.normal) / Vector3.Dot(differenceVector, this.normal);
+            // afstand t zoals deze staat beschreven in de pwp
+            double t = Vector3.Dot(position - ray.startingPosition, this.normal) / denom;
+            if (t < 0) return null; 
 
-            Vector3 intersectionPoint = ray.normal * (float)intersectionDistance + ray.startingPosition;
-
-            Vector3 surfaceNormal = position - intersectionPoint;
-            surfaceNormal.Normalize();
+           
+            Vector3 intersectionPoint = ray.startingPosition + ray.normal * (float)t;
 
 
-            return new Intersection(intersectionPoint, this, intersectionDistance, surfaceNormal, ray);
+            // basisvectoren berekenen
+            Vector3 u = Vector3.Cross(this.normal, new Vector3(0, 1, 0));
+            float uLength = (float)Math.Sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z);
+            if (uLength < 1e-6f) // dit werkt beter bij float ofzo
+                u = Vector3.Cross(this.normal, new Vector3(1, 0, 0));
+            u = Vector3.Normalize(u);
 
+            Vector3 v = Vector3.Normalize(Vector3.Cross(this.normal, u));
+
+            // afstand naar snijpunt
+            Vector3 localVector = intersectionPoint - position;
+            float uDistance = Vector3.Dot(localVector, u);
+            float vDistance = Vector3.Dot(localVector, v);
+
+            // checken of snijpunt binnen vlak valt
+            if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
+                return null; // Buiten het vlak
+
+
+            Vector3 surfaceNormal = this.normal; 
+            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
         }
+
 
         public override void DebugDraw(Surface screen)
         {
+            // Basisvectoren berekenen (zelfde als in Intersect)
+            Vector3 u = Vector3.Cross(this.normal, new Vector3(0, 1, 0));
+            float uLength = (float)Math.Sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z);
+            if (uLength < 1e-6f)
+                u = Vector3.Cross(this.normal, new Vector3(1, 0, 0));
+            u = Vector3.Normalize(u);
 
+            Vector3 v = Vector3.Normalize(Vector3.Cross(this.normal, u));
+
+            // Hoeken van het vlak bepalen
+            Vector3 topLeft = position + (width / 2f) * u + (height / 2f) * v;
+            Vector3 topRight = position - (width / 2f) * u + (height / 2f) * v;
+            Vector3 bottomLeft = position + (width / 2f) * u - (height / 2f) * v;
+            Vector3 bottomRight = position - (width / 2f) * u - (height / 2f) * v;
+
+            // Lijnen tekenen die het vlak aangeven 
+            screen.Line((int)Math.Round(topLeft.X), (int)Math.Round(topLeft.Z), (int)Math.Round(topRight.X), (int)Math.Round(topRight.Z), diffuseColor);
+            screen.Line((int)Math.Round(topRight.X), (int)Math.Round(topRight.Z), (int)Math.Round(bottomRight.X), (int)Math.Round(bottomRight.Z), diffuseColor);
+            screen.Line((int)Math.Round(bottomRight.X), (int)Math.Round(bottomRight.Z), (int)Math.Round(bottomLeft.X), (int)Math.Round(bottomLeft.Z), diffuseColor);
+            screen.Line((int)Math.Round(bottomLeft.X), (int)Math.Round(bottomLeft.Z), (int)Math.Round(topLeft.X), (int)Math.Round(topLeft.Z), diffuseColor);
         }
     }
 
@@ -519,14 +560,14 @@ namespace Template
 
             Vector3 basePosition = new Vector3(100, 0, 300);
             Vector3 movingPosition = new Vector3(basePosition[0] + 200*(float)Math.Cos(tickCounter * 0.2), 0, basePosition[2] + 200*(float)Math.Sin(tickCounter * 0.2));
-            Vector3 BasePositionPlane = new Vector3(50, -200, 100);
-            Vector3 NormalVector = new Vector3(0, 1, 0);
+            Vector3 BasePositionPlane = new Vector3(0,0,0);
+            Vector3 NormalVector = new Vector3(0, 0, 1);
 
             SceneGeometry scene = new SceneGeometry(
             [
-                new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2, []),
-                new Sphere(basePosition, 100,new Color3(1,0,0), new Color3(1,1,1) * 2, []),
-                new Plane(BasePositionPlane,new Color3(0,0,1), new Color3(0,1,0)*2, NormalVector, 20,20, [])
+                new Sphere(movingPosition, 40, new Color3(0,1,0), new Color3(1,1,1) * 2, true,[]),
+                new Sphere(basePosition, 100,new Color3(1,0,0), new Color3(1,1,1) * 2, true, []),
+                new Plane(BasePositionPlane,new Color3(0,0,1), new Color3(0,1,0)*2, NormalVector, 50,50,true, [])
             ],
             [
                 new LightSource(new Vector3(600, 0, 500), new Color3(1,1,1) * 40000 ),
