@@ -10,9 +10,11 @@
 // Wat is interpolatedNormals bij de bonuspunten?
 // is een parallel for genoeg om het parallel bonus punt te krijgen?
 
+using Microsoft.VisualBasic;
 using OpenTK.Mathematics;
 using System.Diagnostics;
 using System.Globalization;
+using System.Drawing;
 
 
 namespace Template
@@ -120,6 +122,77 @@ namespace Template
         }
     }
 
+    public class Triangle : GeometryPrimitive
+    {
+        Vector3 normal;
+        float width;
+        float height;
+        public Triangle(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, bool mirrorValue, List<Intersection> closestLightIntersections) : base(position, diffuseColor, specularColor, mirrorValue, closestLightIntersections)
+        {
+            this.normal = normal;
+            this.width = width;
+            this.height = height;
+        }
+
+        public override Intersection? Intersect(Ray ray)
+        {
+            // Driehoekdefinitie via drie hoekpunten
+            Vector3 vertex0 = position;
+            Vector3 vertex1 = position + new Vector3(width, 0, 0);   
+            Vector3 vertex2 = position + new Vector3(0, 0, height);  
+
+            Vector3 edgeA = vertex1 - vertex0;  
+            Vector3 edgeB = vertex2 - vertex0;  
+
+            // Bereken de vector loodrecht op de straal en edgeB
+            Vector3 pVec = Vector3.Cross(ray.normal, edgeB);
+
+            float det = Vector3.Dot(edgeA, pVec);
+            if (Math.Abs(det) < 1e-6f)
+                return null;
+
+            float invDet = 1.0f / det;
+
+            // Vector vanaf vertex0 naar beginpunt van de straal
+            Vector3 tVec = ray.startingPosition - vertex0;
+
+            // ligt het punt binnen de driehoek?
+            float u = Vector3.Dot(tVec, pVec) * invDet;
+            if (u < 0.0f || u > 1.0f)
+                return null; 
+            Vector3 qVec = Vector3.Cross(tVec, edgeA);
+            float v = Vector3.Dot(ray.normal, qVec) * invDet;
+            if (v < 0.0f || u + v > 1.0f)
+                return null; 
+
+            // Bereken t: afstand langs de straal naar het snijpunt
+            float t = Vector3.Dot(edgeB, qVec) * invDet;
+
+            if (t > 1e-6f) // t moet positief zijn 
+            {
+                Vector3 intersectionPoint = ray.startingPosition + t * ray.normal;
+
+                // Normaal van het vlak van de driehoek (voor schaduw en verlichting)
+                Vector3 surfaceNormal = Vector3.Normalize(Vector3.Cross(edgeA, edgeB));
+
+                return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
+            }
+
+            return null; 
+        }
+
+        public override void DebugDraw(Surface screen)
+        {
+            Vector3 vertex0 = position;
+            Vector3 vertex1 = position + new Vector3(width, 0, 0);
+            Vector3 vertex2 = position + new Vector3(0, 0, height);
+
+            screen.Line((int)vertex0.X, (int)vertex0.Z, (int)vertex1.X, (int)vertex1.Z, diffuseColor);
+            screen.Line((int)vertex1.X, (int)vertex1.Z, (int)vertex2.X, (int)vertex2.Z, diffuseColor);
+            screen.Line((int)vertex2.X, (int)vertex2.Z, (int)vertex0.X, (int)vertex0.Z, diffuseColor);
+        }
+    }
+
     public class Plane : GeometryPrimitive
     {
         Vector3 normal;
@@ -135,60 +208,74 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-            // Vector3 differenceVector = ray.startingPosition - position;       
+            // inprduct berekenen met de straal en normaal vector
+            double denom = Vector3.Dot(ray.normal, this.normal);
+            if (Math.Abs(denom) < 0) return null;
 
-            double intersectionDistance = Vector3.Dot(position - ray.startingPosition, normal) / Vector3.Dot(ray.normal, normal);
+            // afstand t zoals deze staat beschreven in de pwp
+            double t = Vector3.Dot(position - ray.startingPosition, this.normal) / denom;
+            if (t < 0) return null;
 
-            Vector3 surfaceNormal = this.normal; 
-            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
-            // Vector3 differenceVector = ray.startingPosition - position;       
+            Vector3 intersectionPoint = ray.startingPosition + ray.normal * (float)t;
 
-            // Vector3 surfaceNormal = position - intersectionPoint;
-            // surfaceNormal.Normalize();
-
-            if (intersectionDistance <= 0)
-            {
-                return null;
-            }
-            else
-            {
-                return new Intersection(intersectionPoint, this, intersectionDistance, -1 * normal, ray);
-            }
-        }
-
-
-        public override void DebugDraw(Surface screen)
-        {
-            // Basisvectoren berekenen (zelfde als in Intersect)
+            // basisvectoren berekenen
             Vector3 u = Vector3.Cross(this.normal, new Vector3(0, 1, 0));
             float uLength = (float)Math.Sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z);
-            if (uLength < 1e-6f)
+            if (uLength < 1e-6f) // dit werkt beter bij float ofzo
                 u = Vector3.Cross(this.normal, new Vector3(1, 0, 0));
             u = Vector3.Normalize(u);
 
             Vector3 v = Vector3.Normalize(Vector3.Cross(this.normal, u));
 
-            // Hoeken van het vlak bepalen
-            Vector3 topLeft = position + (width / 2f) * u + (height / 2f) * v;
-            Vector3 topRight = position - (width / 2f) * u + (height / 2f) * v;
-            Vector3 bottomLeft = position + (width / 2f) * u - (height / 2f) * v;
-            Vector3 bottomRight = position - (width / 2f) * u - (height / 2f) * v;
+            // afstand naar snijpunt
+            Vector3 localVector = intersectionPoint - position;
+            float uDistance = Vector3.Dot(localVector, u);
+            float vDistance = Vector3.Dot(localVector, v);
 
-            // Lijnen tekenen die het vlak aangeven 
-            screen.Line((int)Math.Round(topLeft.X), (int)Math.Round(topLeft.Z), (int)Math.Round(topRight.X), (int)Math.Round(topRight.Z), diffuseColor);
-            screen.Line((int)Math.Round(topRight.X), (int)Math.Round(topRight.Z), (int)Math.Round(bottomRight.X), (int)Math.Round(bottomRight.Z), diffuseColor);
-            screen.Line((int)Math.Round(bottomRight.X), (int)Math.Round(bottomRight.Z), (int)Math.Round(bottomLeft.X), (int)Math.Round(bottomLeft.Z), diffuseColor);
-            screen.Line((int)Math.Round(bottomLeft.X), (int)Math.Round(bottomLeft.Z), (int)Math.Round(topLeft.X), (int)Math.Round(topLeft.Z), diffuseColor);
+            // checken of snijpunt binnen vlak valt
+            if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
+                return null; // Buiten het vlak
+
+
+            Vector3 surfaceNormal = this.normal;
+            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
+
+
+        }
+
+        public override void DebugDraw(Surface screen)
+        {
+            // eerste de richtingsvectoren u en v die het vlak opspannen
+            Vector3 u = Vector3.Normalize(Vector3.Cross(normal, Vector3.UnitY));
+            float uLength = (float)Math.Sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z);
+            if (uLength < 1e-6f) u = Vector3.Normalize(Vector3.Cross(normal, Vector3.UnitX));
+            Vector3 v = Vector3.Normalize(Vector3.Cross(normal, u));
+
+            // 4 hoeken van het vlak
+            Vector3[] hoeken = new Vector3[4];
+            hoeken[0] = position + u * width / 2 + v * height / 2;
+            hoeken[1] = position - u * width / 2 + v * height / 2;
+            hoeken[2] = position + u * width / 2 - v * height / 2;
+            hoeken[3] = position - u * width / 2 - v * height / 2;
+
+            // lijnen tekenen
+            for (int i = 0; i < 4; i++)
+            {
+                screen.Line((int)hoeken[i].X,(int)hoeken[i].Z,(int)hoeken[(i+1)%4].X,(int)hoeken[(i+1)%4].Z,diffuseColor);
+            }
         }
     }
 
     public class Sphere : GeometryPrimitive
     {
         public double radius;
+        public Bitmap texture; // Voeg een texture toe
 
-        public Sphere(Vector3 position, double radius, Color3 diffuseColor, Color3 specularColor, bool mirrorValue, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
+        public Sphere(Vector3 position, double radius, Bitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
+            : base(position, new Color3(1, 1, 1), specularColor, mirrorValue, closestIntersections)
         {
             this.radius = radius;
+            this.texture = texture;
         }
 
         public override Intersection? Intersect(Ray ray)
@@ -220,10 +307,43 @@ namespace Template
 
             Vector3 intersectionPoint = ray.normal * (float)intersectionDistance + ray.startingPosition;
 
+            Vector3 pLocal = intersectionPoint - position;
+            pLocal = Vector3.Normalize(pLocal);
+
+            float u = 0.5f + (float)(Math.Atan2(pLocal.Z, pLocal.X) / (2 * Math.PI));
+            float v = 0.5f - (float)(Math.Asin(pLocal.Y) / Math.PI);
+
+            int texX = (int)(u * (texture.Width - 1));
+            int texY = (int)(v * (texture.Height - 1));
+
+            Color pixelColor = texture.GetPixel(texX, texY);
+
+            // Converteer pixelColor naar Color3 (normale 0-1 waarden)
+            Color3 colorFromTexture = new Color3(
+                pixelColor.R / 255.0f,
+                pixelColor.G / 255.0f,
+                pixelColor.B / 255.0f
+            );
+
             Vector3 surfaceNormal = position - intersectionPoint;
             surfaceNormal.Normalize();
 
             return new Intersection(intersectionPoint, this, intersectionDistance, surfaceNormal, ray);
+        }
+
+        public Color3 GetTextureColor(Vector3 point)
+        {
+            Vector3 pLocal = Vector3.Normalize(point - position);
+
+            float u = 0.5f + (float)(Math.Atan2(pLocal.Z, pLocal.X) / (2 * Math.PI));
+            float v = 0.5f - (float)(Math.Asin(pLocal.Y) / Math.PI);
+
+            int texX = (int)(u * (texture.Width - 1));
+            int texY = (int)(v * (texture.Height - 1));
+
+            Color pixelColor = texture.GetPixel(texX, texY);
+
+            return new Color3(pixelColor.R / 255.0f, pixelColor.G / 255.0f, pixelColor.B / 255.0f);
         }
 
         public override void DebugDraw(Surface screen)
@@ -419,10 +539,16 @@ namespace Template
                                 .First();
 
                             // Base color to fake ambient lighting
+                            // Bepaal de juiste diffuse kleur: textuurkleur als het een Sphere met texture is, anders gewone diffuseColor
+                            Color3 baseColor = closestPrimaryRayIntersection.intersectedPrimitive is Sphere texturedSphere && texturedSphere.texture != null
+                                ? texturedSphere.GetTextureColor(closestPrimaryRayIntersection.intersectionPoint)
+                                : closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor;
+
+                            // Ambient lighting component
                             Color3 pixelColor = new Color3(
-                                closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.R * scene.ambientRadiance.R,
-                                closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.G * scene.ambientRadiance.G,
-                                closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.B * scene.ambientRadiance.B);
+                                baseColor.R * scene.ambientRadiance.R,
+                                baseColor.G * scene.ambientRadiance.G,
+                                baseColor.B * scene.ambientRadiance.B);
 
                             Color3 pixelColorToneMapped = pixelColor;
 
@@ -456,9 +582,9 @@ namespace Template
                                     float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
 
                                     Vector3 diffuseContribution = new Vector3(
-                                        diffuseReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.R,
-                                        diffuseReflectionRatio * lightSource.color.G * closestLightRayIntersection.intersectedPrimitive.diffuseColor.G,
-                                        diffuseReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor.B);
+                                        diffuseReflectionRatio * lightSource.color.R * baseColor.R,
+                                        diffuseReflectionRatio * lightSource.color.G * baseColor.G,
+                                        diffuseReflectionRatio * lightSource.color.B * baseColor.B);
 
                                     Vector3 lightVector = lightRay.normal * (float)closestLightRayIntersection.distanceToStartingPoint;
                                     Vector3 reflectedVectorNormal = (lightVector - 2 * Vector3.Dot(lightVector, closestLightRayIntersection.surfaceNormal) * closestLightRayIntersection.surfaceNormal).Normalized();
@@ -503,6 +629,35 @@ namespace Template
         }
     }
 
+    public class Texture
+    {
+        public Bitmap bitmap;
+
+        // Constructor: laadt een afbeelding van schijf
+        public Texture(string Marmer)
+        {
+            bitmap = new Bitmap(Marmer);
+        }
+
+        // Haalt kleur op van gegeven UV-coördinaten
+        public Vector3 GetColor(float u, float v)
+        {
+            // Clamp zorgt dat u en v binnen [0, 1] blijven
+            u = Math.Clamp(u, 0, 1);
+            v = Math.Clamp(v, 0, 1);
+
+            // Bereken pixelpositie in bitmap
+            int x = (int)(u * (bitmap.Width - 1));
+            int y = (int)((1 - v) * (bitmap.Height - 1)); // y = 0 is bovenaan
+
+            // Haal kleur op van die pixel
+            Color color = bitmap.GetPixel(x, y);
+
+            // Geef kleur terug als Vector3 (0–1 schaal)
+            return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
+        }
+    }
+
     class MyApplication
     {
         // member variables
@@ -518,6 +673,14 @@ namespace Template
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             this.screen = screen;
 
+            if (!File.Exists("Marmer.png"))
+            {
+                Console.WriteLine("FOUT: Marmer.png niet gevonden!");
+                Console.WriteLine("Zoekt in: " + Path.GetFullPath("Marmer.png"));
+            }
+
+            Bitmap bitmap = new Bitmap("../../../../Marmer.png");
+
             camera = new Camera(
                 new Vector3(200, 0, 2000),
                 new Vector3(0, 0, -1),
@@ -532,24 +695,33 @@ namespace Template
             [
                 new Sphere(
                     new Vector3(100, 0, 300),
-                    40,
+                    40, bitmap,
                     new Color3(0,1,0),
                     new Color3(1,1,1) * 2,
                     false, []),
                 new Sphere(
                     new Vector3(100 + 200 * (float)Math.Cos(0.2), 0, 300 + 200 * (float)Math.Sin(0.2)),
-                    100,
+                    100, bitmap,
                     new Color3(1,0,0),
                     new Color3(1,1,1) * 2,
                     false, []),
-                new Plane(
-                    new Vector3(50, -100, 100),
-                    new Color3(1,1,0),
-                    new Color3(1,1,1) * 2,
-                    new Vector3(0, 1, 0),
-                    20,
-                    20,
-                    false, [])
+                //new Plane(
+                //    new Vector3(50, 0, 350),
+                //    new Color3(1,0,0),
+                //    new Color3(1,1,1) * 2,
+                //    new Vector3(0, 0, -1),
+                //    150,
+                //    150,
+                //    false, []),
+                new Triangle(
+                    new Vector3(50, 100, 30),
+                    new Color3(1, 0, 0),
+                    new Color3(1, 1, 1),
+                    new Vector3(0, 1, 0),  
+                    400,
+                    600,
+                    false,
+                    []),
             ],
             [
                 new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 400000 ),
@@ -557,7 +729,7 @@ namespace Template
             ], new Color3((float)0, (float)0, (float)0));
             rayTracer = new RayTracer(scene, camera, screen);
         }
-        // initialize
+        // initialize   
 
         public void Init()
         {
