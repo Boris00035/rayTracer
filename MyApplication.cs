@@ -208,6 +208,7 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
+<<<<<<< HEAD
             // inprduct berekenen met de straal en normaal vector
             double denom = Vector3.Dot(ray.normal, this.normal);
             if (Math.Abs(denom) < 0) return null;
@@ -239,12 +240,16 @@ namespace Template
 
             Vector3 surfaceNormal = this.normal;
             return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
+=======
+            // Vector3 differenceVector = ray.startingPosition - position;       
+>>>>>>> 2c7793c72ae16b3fe1c35925b2196fe20e92170f
 
 
         }
 
         public override void DebugDraw(Surface screen)
         {
+<<<<<<< HEAD
             // eerste de richtingsvectoren u en v die het vlak opspannen
             Vector3 u = Vector3.Normalize(Vector3.Cross(normal, Vector3.UnitY));
             float uLength = (float)Math.Sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z);
@@ -263,6 +268,9 @@ namespace Template
             {
                 screen.Line((int)hoeken[i].X,(int)hoeken[i].Z,(int)hoeken[(i+1)%4].X,(int)hoeken[(i+1)%4].Z,diffuseColor);
             }
+=======
+
+>>>>>>> 2c7793c72ae16b3fe1c35925b2196fe20e92170f
         }
     }
 
