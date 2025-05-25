@@ -16,7 +16,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Drawing;
 
-
 namespace Template
 {
     public class Camera
@@ -208,7 +207,6 @@ namespace Template
 
         public override Intersection? Intersect(Ray ray)
         {
-<<<<<<< HEAD
             // inprduct berekenen met de straal en normaal vector
             double denom = Vector3.Dot(ray.normal, this.normal);
             if (Math.Abs(denom) < 0) return null;
@@ -240,9 +238,6 @@ namespace Template
 
             Vector3 surfaceNormal = this.normal;
             return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
-=======
-            // Vector3 differenceVector = ray.startingPosition - position;       
->>>>>>> 2c7793c72ae16b3fe1c35925b2196fe20e92170f
 
 
         }
@@ -519,15 +514,14 @@ namespace Template
                 // Parallel.For(0, screen.height + 1, heightPixel =>
                 for (int heightPixel = 0; heightPixel <= screen.height; heightPixel++)
                 {
-                    Parallel.For(0, screen.width + 1,
-                    widthPixel =>
+                    for (int widthPixel = 0; widthPixel <= screen.width; widthPixel++)
                     {
                         Vector3 rayNormal = camera.position + cameraWidthScale * ((int)Math.Round(0.5 * screen.width) - widthPixel) * leftDirection + cameraHeightScale * ((int)Math.Round(0.5 * screen.height) - heightPixel) * camera.upDirection - focalPoint;
                         rayNormal.Normalize();
 
                         Ray ray = new Ray(rayNormal, focalPoint);
 
-                        List<Intersection> primaryIntersectionArray = new List<Intersection>();
+                        primaryIntersectionArray = new List<Intersection>();
 
                         foreach (GeometryPrimitive primitive in scene.primitives)
                         {
@@ -627,7 +621,7 @@ namespace Template
 
                             screen.Plot(widthPixel, heightPixel, pixelColor);
                         }
-                    });
+                    }
                 }
 
             }
@@ -645,7 +639,7 @@ namespace Template
             bitmap = new Bitmap(Marmer);
         }
 
-        // Haalt kleur op van gegeven UV-coördinaten
+        // Haalt kleur op van gegeven UV-coordinaten
         public Vector3 GetColor(float u, float v)
         {
             // Clamp zorgt dat u en v binnen [0, 1] blijven
@@ -659,7 +653,7 @@ namespace Template
             // Haal kleur op van die pixel
             Color color = bitmap.GetPixel(x, y);
 
-            // Geef kleur terug als Vector3 (0–1 schaal)
+            // Geef kleur terug als Vector3 (0ï¿½1 schaal)
             return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
         }
     }
@@ -685,7 +679,7 @@ namespace Template
                 Console.WriteLine("Zoekt in: " + Path.GetFullPath("Marmer.png"));
             }
 
-            Bitmap bitmap = new Bitmap("../../../../Marmer.png");
+            Bitmap bitmap = new Bitmap("Marmer.png");
 
             camera = new Camera(
                 new Vector3(200, 0, 2000),
