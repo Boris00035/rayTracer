@@ -249,28 +249,26 @@ namespace Template
 
         public override void DebugDraw(Surface screen)
         {
-<<<<<<< HEAD
-            // eerste de richtingsvectoren u en v die het vlak opspannen
-            Vector3 u = Vector3.Normalize(Vector3.Cross(normal, Vector3.UnitY));
+            // Basisvectoren berekenen (zelfde als in Intersect)
+            Vector3 u = Vector3.Cross(this.normal, new Vector3(0, 1, 0));
             float uLength = (float)Math.Sqrt(u.X * u.X + u.Y * u.Y + u.Z * u.Z);
-            if (uLength < 1e-6f) u = Vector3.Normalize(Vector3.Cross(normal, Vector3.UnitX));
-            Vector3 v = Vector3.Normalize(Vector3.Cross(normal, u));
+            if (uLength < 1e-6f)
+                u = Vector3.Cross(this.normal, new Vector3(1, 0, 0));
+            u = Vector3.Normalize(u);
 
-            // 4 hoeken van het vlak
-            Vector3[] hoeken = new Vector3[4];
-            hoeken[0] = position + u * width / 2 + v * height / 2;
-            hoeken[1] = position - u * width / 2 + v * height / 2;
-            hoeken[2] = position + u * width / 2 - v * height / 2;
-            hoeken[3] = position - u * width / 2 - v * height / 2;
+            Vector3 v = Vector3.Normalize(Vector3.Cross(this.normal, u));
 
-            // lijnen tekenen
-            for (int i = 0; i < 4; i++)
-            {
-                screen.Line((int)hoeken[i].X,(int)hoeken[i].Z,(int)hoeken[(i+1)%4].X,(int)hoeken[(i+1)%4].Z,diffuseColor);
-            }
-=======
+            // Hoeken van het vlak bepalen
+            Vector3 topLeft = position + (width / 2f) * u + (height / 2f) * v;
+            Vector3 topRight = position - (width / 2f) * u + (height / 2f) * v;
+            Vector3 bottomLeft = position + (width / 2f) * u - (height / 2f) * v;
+            Vector3 bottomRight = position - (width / 2f) * u - (height / 2f) * v;
 
->>>>>>> 2c7793c72ae16b3fe1c35925b2196fe20e92170f
+            // Lijnen tekenen die het vlak aangeven 
+            screen.Line((int)Math.Round(topLeft.X), (int)Math.Round(topLeft.Z), (int)Math.Round(topRight.X), (int)Math.Round(topRight.Z), diffuseColor);
+            screen.Line((int)Math.Round(topRight.X), (int)Math.Round(topRight.Z), (int)Math.Round(bottomRight.X), (int)Math.Round(bottomRight.Z), diffuseColor);
+            screen.Line((int)Math.Round(bottomRight.X), (int)Math.Round(bottomRight.Z), (int)Math.Round(bottomLeft.X), (int)Math.Round(bottomLeft.Z), diffuseColor);
+            screen.Line((int)Math.Round(bottomLeft.X), (int)Math.Round(bottomLeft.Z), (int)Math.Round(topLeft.X), (int)Math.Round(topLeft.Z), diffuseColor);
         }
     }
 
