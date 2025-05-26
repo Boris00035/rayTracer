@@ -26,8 +26,8 @@ Bonus features implemented:
 [ ] Spot lights: smooth falloff optional
 [ ] Glossy reflections: not only of light sources but of other objects
 [ ] Anti-aliasing
-[ ] Parallelized
-Method: ... (for example: parallel-for, async tasks, or threads)
+[x] Parallelized
+Method: binnensteLoop een parallel for
 [ ] Textures: on all implemented primitives
 [ ] Bump or normal mapping: on all implemented primitives
 [ ] Environment mapping: sphere or cube map, without intersecting actual sphere/cube/triangle primitives

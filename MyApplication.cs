@@ -1,21 +1,21 @@
 // TODO:
+// template.cs handmatig updaten
 // Implement the plane debugDraw method
 // implement plane of arbitrary size
 // implement triangle primitive
-// template.cs handmatig updaten
 // fixen van rotation drift in rotation om de lookAtDirection
-// fixen van schaduws zien wanneer de camera achter de ballen is (primaryRays intersected door naar achter te gaan?)
 
 // vragen: 
-// Wat is interpolatedNormals bij de bonuspunten?
+// Wat is interpolatedNormals bij de bonuspunten? 
 // is een parallel for genoeg om het parallel bonus punt te krijgen?
+// waarom eindigt mijn plane altijd in het midden van het scherm?
+// waarom is de rand van de bollen zo pixelated maar van de specular spots niet?
 
 using Microsoft.VisualBasic;
 using OpenTK.Mathematics;
 using System.Diagnostics;
 using System.Globalization;
-using System.Drawing;
-
+using IronSoftware.Drawing;
 
 namespace Template
 {
@@ -28,8 +28,13 @@ namespace Template
         public float height;
         public double focalLength;
         public bool orientationLock;
+        public float yaw;
+        public float pitch;
 
-        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength, bool orientationLock)
+        public Vector3 standardLookAtDirection = new Vector3(0,0,-1);
+        public Vector3 standardUpDirection = new Vector3(0,1,0);
+
+        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength, bool orientationLock, float yaw, float pitch)
         {
             this.position = position;
             this.lookAtDirection = lookAtDirection;
@@ -38,6 +43,8 @@ namespace Template
             this.height = height;
             this.focalLength = focalLength;
             this.orientationLock = orientationLock;
+            this.yaw = yaw;
+            this.pitch = pitch;
         }
     }
 
@@ -332,9 +339,9 @@ namespace Template
     public class Sphere : GeometryPrimitive
     {
         public double radius;
-        public Bitmap texture; // Voeg een texture toe
+        public AnyBitmap texture; // Voeg een texture toe
 
-        public Sphere(Vector3 position, double radius, Bitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
+        public Sphere(Vector3 position, double radius, AnyBitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
             : base(position, new Color3(1, 1, 1), specularColor, mirrorValue, closestIntersections)
         {
             this.radius = radius;
@@ -344,11 +351,12 @@ namespace Template
         public override Intersection? Intersect(Ray ray)
         {
             Vector3 differenceVector = ray.startingPosition - position;
+
             double quadraticTerm = Vector3.Dot(ray.normal, ray.normal);
             double linearTerm = 2 * Vector3.Dot(ray.normal, differenceVector);
             double constantTerm = Vector3.Dot(differenceVector, differenceVector) - (double)(radius * radius);
 
-            double intersectionDistance;
+            double? intersectionDistance = null;
             double discriminant = linearTerm * linearTerm - 4 * quadraticTerm * constantTerm;
             // Console.WriteLine(discriminant);
             if (discriminant < 0)
@@ -357,13 +365,22 @@ namespace Template
             }
             else
             {
-                intersectionDistance = Math.Min(
-                Math.Abs((-1 * linearTerm + Math.Sqrt(discriminant)) / (2 * quadraticTerm)),
-                Math.Abs((-1 * linearTerm - Math.Sqrt(discriminant)) / (2 * quadraticTerm))
-                );
+                double rootOne = (-1 * linearTerm + Math.Sqrt(discriminant)) / (2 * quadraticTerm);
+                double rootTwo = (-1 * linearTerm - Math.Sqrt(discriminant)) / (2 * quadraticTerm);
+                if (rootOne >= 0 && rootTwo >= 0)
+                {
+                    intersectionDistance = Math.Min(rootOne, rootTwo);
+                }
+                else if (rootOne >= 0 && rootTwo <= 0)
+                {
+                    intersectionDistance = rootOne;
+                }
+                else if (rootOne <= 0 && rootTwo >= 0)
+                {
+                    intersectionDistance = rootTwo;
+                }
             }
-
-            if (intersectionDistance <= 0)
+            if (intersectionDistance == null)
             {
                 return null;
             }
@@ -391,7 +408,8 @@ namespace Template
             Vector3 surfaceNormal = position - intersectionPoint;
             surfaceNormal.Normalize();
 
-            return new Intersection(intersectionPoint, this, intersectionDistance, surfaceNormal, ray);
+            return new Intersection(intersectionPoint, this, intersectionDistance.Value, surfaceNormal, ray);
+
         }
 
         public Color3 GetTextureColor(Vector3 point)
@@ -511,6 +529,7 @@ namespace Template
                         Intersection closestIntersection = primaryIntersectionArray
                         .OrderBy(i => i.distanceToStartingPoint)
                         .First();
+
                         screen.Line((int)Math.Round(focalPoint[0]),
                                     (int)Math.Round(focalPoint[2]),
                                     (int)Math.Round(closestIntersection.intersectionPoint[0]),
@@ -540,6 +559,14 @@ namespace Template
                                 Intersection closestLightRayIntersection = lightRayIntersectionArray
                                     .OrderBy(i => i.distanceToStartingPoint)
                                     .First();
+                                
+                                // This should make the lightrays not draw when inside a sphere, but it doesnt work
+                                // Vector3 lightRayDiff = closestLightRayIntersection.intersectionPoint - closestLightRayIntersection.ray.startingPosition;
+                                // Vector3 primaryRayDiff = closestIntersection.intersectionPoint - closestIntersection.ray.startingPosition;
+                                // if (Vector3.Dot(lightRayDiff, closestIntersection.surfaceNormal) * Vector3.Dot(primaryRayDiff, closestIntersection.surfaceNormal) < 0)
+                                // {
+                                //     continue;
+                                // }
 
                                 screen.Line((int)Math.Round(lightSource.position[0]),
                                             (int)Math.Round(lightSource.position[2]),
@@ -576,15 +603,14 @@ namespace Template
                 // Parallel.For(0, screen.height + 1, heightPixel =>
                 for (int heightPixel = 0; heightPixel <= screen.height; heightPixel++)
                 {
-                    Parallel.For(0, screen.width + 1,
-                    widthPixel =>
+                    for (int widthPixel = 0; widthPixel <= screen.width; widthPixel++)
                     {
                         Vector3 rayNormal = camera.position + cameraWidthScale * ((int)Math.Round(0.5 * screen.width) - widthPixel) * leftDirection + cameraHeightScale * ((int)Math.Round(0.5 * screen.height) - heightPixel) * camera.upDirection - focalPoint;
                         rayNormal.Normalize();
 
                         Ray ray = new Ray(rayNormal, focalPoint);
 
-                        List<Intersection> primaryIntersectionArray = new List<Intersection>();
+                        primaryIntersectionArray = new List<Intersection>();
 
                         foreach (GeometryPrimitive primitive in scene.primitives)
                         {
@@ -641,6 +667,14 @@ namespace Template
                                         continue;
                                     }
 
+                                    Vector3 lightRayDiff = closestLightRayIntersection.intersectionPoint - closestLightRayIntersection.ray.startingPosition;
+                                    Vector3 primaryRayDiff = closestPrimaryRayIntersection.intersectionPoint - closestPrimaryRayIntersection.ray.startingPosition;
+                                    if (Vector3.Dot(lightRayDiff, closestPrimaryRayIntersection.surfaceNormal) * Vector3.Dot(primaryRayDiff, closestPrimaryRayIntersection.surfaceNormal) < 0)
+                                    {
+                                        continue;
+                                    }
+
+
                                     // shading logic                               
                                     float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
 
@@ -684,7 +718,7 @@ namespace Template
 
                             screen.Plot(widthPixel, heightPixel, pixelColor);
                         }
-                    });
+                    }
                 }
 
             }
@@ -694,15 +728,15 @@ namespace Template
 
     public class Texture
     {
-        public Bitmap bitmap;
+        public AnyBitmap bitmap;
 
         // Constructor: laadt een afbeelding van schijf
         public Texture(string Marmer)
         {
-            bitmap = new Bitmap("../../../../Marmer.png");
+            bitmap = new AnyBitmap(Marmer);
         }
 
-        // Haalt kleur op van gegeven UV-coördinaten
+        // Haalt kleur op van gegeven UV-coordinaten
         public Vector3 GetColor(float u, float v)
         {
             // Clamp zorgt dat u en v binnen [0, 1] blijven
@@ -716,7 +750,7 @@ namespace Template
             // Haal kleur op van die pixel
             Color color = bitmap.GetPixel(x, y);
 
-            // Geef kleur terug als Vector3 (0–1 schaal)
+            // Geef kleur terug als Vector3 (0ï¿½1 schaal)
             return new Vector3(color.R / 255f, color.G / 255f, color.B / 255f);
         }
     }
@@ -742,9 +776,7 @@ namespace Template
                 Console.WriteLine("Zoekt in: " + Path.GetFullPath("Marmer.png"));
             }
 
-            Bitmap bitmap = new Bitmap("../../../../Marmer.png");
-            Bitmap triangleTexture = new Bitmap("../../../../Bakstenen.png");
-            Bitmap planeTexture = new Bitmap("../../../../Bakstenen.png");
+            AnyBitmap bitmap = new AnyBitmap("Marmer.png");
 
             camera = new Camera(
                 new Vector3(200, 0, 2000),
@@ -753,7 +785,9 @@ namespace Template
                 50,
                 10,
                 56.0,
-                true);
+                true,
+                0,
+                0);
 
 
             scene = new SceneGeometry(
@@ -762,13 +796,13 @@ namespace Template
                     new Vector3(100, 0, 300),
                     40, bitmap,
                     new Color3(0,1,0),
-                    new Color3(1,1,1) * 2,
+                    new Color3(1,1,1),
                     false, []),
                 new Sphere(
                     new Vector3(100 + 200 * (float)Math.Cos(0.2), 0, 300 + 200 * (float)Math.Sin(0.2)),
                     100, bitmap,
                     new Color3(1,0,0),
-                    new Color3(1,1,1) * 2,
+                    new Color3(1,1,1),
                     false, []),
                 new Plane(
                     new Vector3(50, 0, 350),
@@ -807,7 +841,7 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = false;
+        public bool debugMode = true;
         public bool debugData = false;
         double PI = 3.1415926535897932384626433832795028;
         
@@ -836,6 +870,7 @@ namespace Template
                 double fieldOfView = 2 * Math.Atan(screen.width / (2 * camera.focalLength)) * 180 / PI;
                 screen.PrintOutlined("field of view:" + double.Round(fieldOfView).ToString() + "degrees", 300, 2, Color4.White);
                 screen.PrintOutlined("position:" + camera.position[0].ToString() + "," + camera.position[1].ToString() + "," + camera.position[2].ToString(), 2, 25, Color4.White);
+                screen.PrintOutlined("yaw: " + camera.yaw.ToString() + " " + "pitch: " + camera.pitch.ToString(), 2, 50, Color4.White);
             }
         }
 
