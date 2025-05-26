@@ -97,6 +97,7 @@ namespace Template
         // GeometryPrimitive nearestPrimitive;
         public Vector3 surfaceNormal;
         public Ray ray;
+        internal Color3? textureColor;
 
         public Intersection(Vector3 intersectionPoint, GeometryPrimitive intersectedPrimitive, double distanceToStartingPoint, Vector3 surfaceNormal, Ray ray)
         {
@@ -136,11 +137,14 @@ namespace Template
         Vector3 normal;
         float width;
         float height;
-        public Triangle(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, bool mirrorValue, List<Intersection> closestLightIntersections) : base(position, diffuseColor, specularColor, mirrorValue, closestLightIntersections)
+        public Bitmap texture;
+
+        public Triangle(Vector3 position, Color3 diffuseColor, Color3 specularColor, float width, float height, Bitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
+            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
         {
-            this.normal = normal;
             this.width = width;
             this.height = height;
+            this.texture = texture;
         }
 
         public override Intersection? Intersect(Ray ray)
@@ -190,6 +194,37 @@ namespace Template
             return null; 
         }
 
+        public Color3 GetTextureColor(Vector3 point)
+        {
+            Vector3 v0 = position;
+            Vector3 v1 = position + new Vector3(width, 0, 0);
+            Vector3 v2 = position + new Vector3(0, 0, height);
+
+            Vector3 edge0 = v1 - v0;
+            Vector3 edge1 = v2 - v0;
+            Vector3 vp = point - v0;
+
+            float d00 = Vector3.Dot(edge0, edge0);
+            float d01 = Vector3.Dot(edge0, edge1);
+            float d11 = Vector3.Dot(edge1, edge1);
+            float d20 = Vector3.Dot(vp, edge0);
+            float d21 = Vector3.Dot(vp, edge1);
+
+            float denom = d00 * d11 - d01 * d01;
+            float v = (d11 * d20 - d01 * d21) / denom;
+            float w = (d00 * d21 - d01 * d20) / denom;
+            float u = 1.0f - v - w;
+
+            float texU = u * 0 + v * 1 + w * 0;
+            float texV = u * 0 + v * 0 + w * 1;
+
+            int texX = Math.Clamp((int)(texU * texture.Width), 0, texture.Width - 1);
+            int texY = Math.Clamp((int)(texV * texture.Height), 0, texture.Height - 1);
+
+            Color pixelColor = texture.GetPixel(texX, texY);
+            return new Color3(pixelColor.R / 255.0f, pixelColor.G / 255.0f, pixelColor.B / 255.0f);
+        }
+
         public override void DebugDraw(Surface screen)
         {
             Vector3 vertex0 = position;
@@ -208,11 +243,34 @@ namespace Template
         float width;
         float height;
 
-        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, bool mirrorValue, List<Intersection> closestIntersections) : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
+        public Bitmap texture;
+
+        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, Bitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
+            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
         {
             this.normal = normal;
             this.width = width;
             this.height = height;
+            this.texture = texture;
+        }
+
+        public Color3 GetTextureColor(Vector3 point)
+        {
+            // Zelfde u/v-basis als in Intersect en DebugDraw
+            Vector3 u = Vector3.Cross(this.normal, new Vector3(0, 1, 0));
+            if (u.LengthSquared < 1e-6f) u = Vector3.Cross(this.normal, new Vector3(1, 0, 0));
+            u = Vector3.Normalize(u);
+            Vector3 v = Vector3.Normalize(Vector3.Cross(this.normal, u));
+
+            Vector3 localVector = point - position;
+            float uCoord = 0.5f + Vector3.Dot(localVector, u) / width;   // van 0 tot 1
+            float vCoord = 0.5f + Vector3.Dot(localVector, v) / height;
+
+            int texX = Math.Clamp((int)(uCoord * texture.Width), 0, texture.Width - 1);
+            int texY = Math.Clamp((int)(vCoord * texture.Height), 0, texture.Height - 1);
+
+            Color pixelColor = texture.GetPixel(texX, texY);
+            return new Color3(pixelColor.R / 255.0f, pixelColor.G / 255.0f, pixelColor.B / 255.0f);
         }
 
         public override Intersection? Intersect(Ray ray)
@@ -246,11 +304,14 @@ namespace Template
             // checken of snijpunt binnen vlak valt
             if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
                 return null; // Buiten het vlak
-            }
 
 
             Vector3 surfaceNormal = this.normal;
             return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
+
+
+            Color3? textureCol = texture != null ? GetTextureColor(intersectionPoint) : null;
+            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray) { textureColor = textureCol };
 
 
         }
@@ -714,7 +775,7 @@ namespace Template
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             this.screen = screen;
 
-            if (!File.Exists("Marmer.png"))
+            if (!File.Exists("../../../../Marmer.png"))
             {
                 Console.WriteLine("FOUT: Marmer.png niet gevonden!");
                 Console.WriteLine("Zoekt in: " + Path.GetFullPath("Marmer.png"));
@@ -749,13 +810,22 @@ namespace Template
                     new Color3(1,1,1),
                     false, []),
                 new Plane(
-                    new Vector3(50, -100, 100),
-                    new Color3(1,1,0),
-                    new Color3(1,1,1),
-                    new Vector3(0, 1, 0),
-                    0,
-                    0,
-                    false, [])
+                    new Vector3(50, 0, 350),
+                    new Color3(1,0,0),
+                    new Color3(1,1,1) * 2,
+                    new Vector3(0, 0, -1),
+                    150,
+                    150, 
+                    planeTexture,
+                    false, []),
+                new Triangle(
+                    new Vector3(0, 0, 0),
+                    new Color3(1, 1, 1), 
+                    new Color3(1, 1, 1),
+                    400,
+                    600,
+                    triangleTexture,
+                    false,[]),
             ],
             [
                 new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 400000 ),
