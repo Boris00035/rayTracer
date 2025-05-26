@@ -1,18 +1,20 @@
 // TODO:
+// template.cs handmatig updaten
 // Implement the plane debugDraw method
 // implement plane of arbitrary size
 // implement triangle primitive
-// template.cs handmatig updaten
 // fixen van rotation drift in rotation om de lookAtDirection
-// fixen van schaduws zien wanneer de camera achter de ballen is (primaryRays intersected door naar achter te gaan?)
 
 // vragen: 
-// Wat is interpolatedNormals bij de bonuspunten?
+// Wat is interpolatedNormals bij de bonuspunten? 
 // is een parallel for genoeg om het parallel bonus punt te krijgen?
+// waarom eindigt mijn plane altijd in het midden van het scherm?
+// waarom is de rand van de bollen zo pixelated maar van de specular spots niet?
 
 using OpenTK.Mathematics;
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 
 namespace Template
@@ -26,8 +28,13 @@ namespace Template
         public float height;
         public double focalLength;
         public bool orientationLock;
+        public float yaw;
+        public float pitch;
 
-        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength, bool orientationLock)
+        public Vector3 standardLookAtDirection = new Vector3(0,0,-1);
+        public Vector3 standardUpDirection = new Vector3(0,1,0);
+
+        public Camera(Vector3 position, Vector3 lookAtDirection, Vector3 upDirection, float width, float height, double focalLength, bool orientationLock, float yaw, float pitch)
         {
             this.position = position;
             this.lookAtDirection = lookAtDirection;
@@ -36,6 +43,8 @@ namespace Template
             this.height = height;
             this.focalLength = focalLength;
             this.orientationLock = orientationLock;
+            this.yaw = yaw;
+            this.pitch = pitch;
         }
     }
 
@@ -172,11 +181,12 @@ namespace Template
         public override Intersection? Intersect(Ray ray)
         {
             Vector3 differenceVector = ray.startingPosition - position;
+
             double quadraticTerm = Vector3.Dot(ray.normal, ray.normal);
             double linearTerm = 2 * Vector3.Dot(ray.normal, differenceVector);
             double constantTerm = Vector3.Dot(differenceVector, differenceVector) - (double)(radius * radius);
 
-            double intersectionDistance;
+            double? intersectionDistance = null;
             double discriminant = linearTerm * linearTerm - 4 * quadraticTerm * constantTerm;
             // Console.WriteLine(discriminant);
             if (discriminant < 0)
@@ -185,13 +195,22 @@ namespace Template
             }
             else
             {
-                intersectionDistance = Math.Min(
-                Math.Abs((-1 * linearTerm + Math.Sqrt(discriminant)) / (2 * quadraticTerm)),
-                Math.Abs((-1 * linearTerm - Math.Sqrt(discriminant)) / (2 * quadraticTerm))
-                );
+                double rootOne = (-1 * linearTerm + Math.Sqrt(discriminant)) / (2 * quadraticTerm);
+                double rootTwo = (-1 * linearTerm - Math.Sqrt(discriminant)) / (2 * quadraticTerm);
+                if (rootOne >= 0 && rootTwo >= 0)
+                {
+                    intersectionDistance = Math.Min(rootOne, rootTwo);
+                }
+                else if (rootOne >= 0 && rootTwo <= 0)
+                {
+                    intersectionDistance = rootOne;
+                }
+                else if (rootOne <= 0 && rootTwo >= 0)
+                {
+                    intersectionDistance = rootTwo;
+                }
             }
-
-            if (intersectionDistance <= 0)
+            if (intersectionDistance == null)
             {
                 return null;
             }
@@ -201,7 +220,8 @@ namespace Template
             Vector3 surfaceNormal = position - intersectionPoint;
             surfaceNormal.Normalize();
 
-            return new Intersection(intersectionPoint, this, intersectionDistance, surfaceNormal, ray);
+            return new Intersection(intersectionPoint, this, intersectionDistance.Value, surfaceNormal, ray);
+
         }
 
         public override void DebugDraw(Surface screen)
@@ -306,6 +326,7 @@ namespace Template
                         Intersection closestIntersection = primaryIntersectionArray
                         .OrderBy(i => i.distanceToStartingPoint)
                         .First();
+
                         screen.Line((int)Math.Round(focalPoint[0]),
                                     (int)Math.Round(focalPoint[2]),
                                     (int)Math.Round(closestIntersection.intersectionPoint[0]),
@@ -335,6 +356,14 @@ namespace Template
                                 Intersection closestLightRayIntersection = lightRayIntersectionArray
                                     .OrderBy(i => i.distanceToStartingPoint)
                                     .First();
+                                
+                                // This should make the lightrays not draw when inside a sphere, but it doesnt work
+                                // Vector3 lightRayDiff = closestLightRayIntersection.intersectionPoint - closestLightRayIntersection.ray.startingPosition;
+                                // Vector3 primaryRayDiff = closestIntersection.intersectionPoint - closestIntersection.ray.startingPosition;
+                                // if (Vector3.Dot(lightRayDiff, closestIntersection.surfaceNormal) * Vector3.Dot(primaryRayDiff, closestIntersection.surfaceNormal) < 0)
+                                // {
+                                //     continue;
+                                // }
 
                                 screen.Line((int)Math.Round(lightSource.position[0]),
                                             (int)Math.Round(lightSource.position[2]),
@@ -430,6 +459,14 @@ namespace Template
                                         continue;
                                     }
 
+                                    Vector3 lightRayDiff = closestLightRayIntersection.intersectionPoint - closestLightRayIntersection.ray.startingPosition;
+                                    Vector3 primaryRayDiff = closestPrimaryRayIntersection.intersectionPoint - closestPrimaryRayIntersection.ray.startingPosition;
+                                    if (Vector3.Dot(lightRayDiff, closestPrimaryRayIntersection.surfaceNormal) * Vector3.Dot(primaryRayDiff, closestPrimaryRayIntersection.surfaceNormal) < 0)
+                                    {
+                                        continue;
+                                    }
+
+
                                     // shading logic                               
                                     float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
 
@@ -503,7 +540,9 @@ namespace Template
                 50,
                 10,
                 56.0,
-                true);
+                true,
+                0,
+                0);
 
 
             scene = new SceneGeometry(
@@ -512,18 +551,18 @@ namespace Template
                     new Vector3(100, 0, 300),
                     40,
                     new Color3(0,1,0),
-                    new Color3(1,1,1) * 2,
+                    new Color3(1,1,1),
                     false, []),
                 new Sphere(
                     new Vector3(100 + 200 * (float)Math.Cos(0.2), 0, 300 + 200 * (float)Math.Sin(0.2)),
                     100,
                     new Color3(1,0,0),
-                    new Color3(1,1,1) * 2,
+                    new Color3(1,1,1),
                     false, []),
                 new Plane(
                     new Vector3(50, -100, 100),
                     new Color3(1,1,0),
-                    new Color3(1,1,1) * 2,
+                    new Color3(1,1,1),
                     new Vector3(0, 1, 0),
                     20,
                     20,
@@ -548,7 +587,7 @@ namespace Template
         private uint frames = 0;
         private string timeString = "---- ms/frame";
 
-        public bool debugMode = false;
+        public bool debugMode = true;
         public bool debugData = false;
         double PI = 3.1415926535897932384626433832795028;
         
@@ -577,6 +616,7 @@ namespace Template
                 double fieldOfView = 2 * Math.Atan(screen.width / (2 * camera.focalLength)) * 180 / PI;
                 screen.PrintOutlined("field of view:" + double.Round(fieldOfView).ToString() + "degrees", 300, 2, Color4.White);
                 screen.PrintOutlined("position:" + camera.position[0].ToString() + "," + camera.position[1].ToString() + "," + camera.position[2].ToString(), 2, 25, Color4.White);
+                screen.PrintOutlined("yaw: " + camera.yaw.ToString() + " " + "pitch: " + camera.pitch.ToString(), 2, 50, Color4.White);
             }
         }
 
