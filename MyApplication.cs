@@ -112,14 +112,18 @@ namespace Template
     {
         public abstract Intersection? Intersect(Ray ray);
         public abstract void DebugDraw(Surface screen);
+        public abstract Color3 GetTextureColor(Vector3 pixelPosition);
         public Vector3 position;
         public Color3 diffuseColor;
         public Color3 specularColor;
         public bool mirrorValue;
+        public AnyBitmap texture;
+
         // this field is currently not used, the closestlightintersection is just calculated when needed. But with some refactoring this can probably be extracted fairly cheaply from the "main" loop. This would be in the form of an object / light intersection matrix, not this array.
         public List<Intersection> closestLightIntersections;
 
-        protected GeometryPrimitive(Vector3 position, Color3 diffuseColor, Color3 specularColor, bool mirrorValue, List<Intersection> closestLightIntersections)
+
+        protected GeometryPrimitive(Vector3 position, Color3 diffuseColor, Color3 specularColor, bool mirrorValue, List<Intersection> closestLightIntersections, AnyBitmap texture)
         {
             this.diffuseColor = diffuseColor;
             this.position = position;
@@ -127,6 +131,7 @@ namespace Template
             this.specularColor = specularColor;
             this.mirrorValue = mirrorValue;
             this.closestLightIntersections = closestLightIntersections;
+            this.texture = texture;
         }
     }
 
@@ -135,10 +140,10 @@ namespace Template
         Vector3 normal;
         float width;
         float height;
-        public Bitmap texture;
+        public AnyBitmap texture;
 
-        public Triangle(Vector3 position, Color3 diffuseColor, Color3 specularColor, float width, float height, Bitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
-            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
+        public Triangle(Vector3 position, Color3 diffuseColor, Color3 specularColor, float width, float height, AnyBitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
+            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections, texture)
         {
             this.width = width;
             this.height = height;
@@ -179,20 +184,22 @@ namespace Template
             // Bereken t: afstand langs de straal naar het snijpunt
             float t = Vector3.Dot(edgeB, qVec) * invDet;
 
-            if (t > 1e-6f) // t moet positief zijn 
+            if (t > 1e-6f)
             {
                 Vector3 intersectionPoint = ray.startingPosition + t * ray.normal;
-
-                // Normaal van het vlak van de driehoek (voor schaduw en verlichting)
                 Vector3 surfaceNormal = Vector3.Normalize(Vector3.Cross(edgeA, edgeB));
+                Color3? textureCol = texture != null ? GetTextureColor(intersectionPoint) : null;
 
-                return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
+                return new Intersection(intersectionPoint, this, t, surfaceNormal, ray)
+                {
+                    textureColor = textureCol
+                };
             }
 
             return null; 
         }
 
-        public Color3 GetTextureColor(Vector3 point)
+        public override Color3 GetTextureColor(Vector3 point)
         {
             Vector3 v0 = position;
             Vector3 v1 = position + new Vector3(width, 0, 0);
@@ -241,10 +248,10 @@ namespace Template
         float width;
         float height;
 
-        public Bitmap texture;
+        public AnyBitmap texture;
 
-        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, Bitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
-            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
+        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, AnyBitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
+            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections, texture)
         {
             this.normal = normal;
             this.width = width;
@@ -252,7 +259,7 @@ namespace Template
             this.texture = texture;
         }
 
-        public Color3 GetTextureColor(Vector3 point)
+        public override Color3 GetTextureColor(Vector3 point)
         {
             // Zelfde u/v-basis als in Intersect en DebugDraw
             Vector3 u = Vector3.Cross(this.normal, new Vector3(0, 1, 0));
@@ -308,6 +315,16 @@ namespace Template
             Color3? textureCol = texture != null ? GetTextureColor(intersectionPoint) : null;
             return new Intersection(intersectionPoint, this, t, surfaceNormal, ray) { textureColor = textureCol };
 
+            if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
+                return null;
+
+            surfaceNormal = this.normal;
+            textureCol = texture != null ? GetTextureColor(intersectionPoint) : null;
+
+            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray)
+            {
+                textureColor = textureCol
+            };
 
         }
 
@@ -342,7 +359,7 @@ namespace Template
         public AnyBitmap texture; // Voeg een texture toe
 
         public Sphere(Vector3 position, double radius, AnyBitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
-            : base(position, new Color3(1, 1, 1), specularColor, mirrorValue, closestIntersections)
+            : base(position, new Color3(1, 1, 1), specularColor, mirrorValue, closestIntersections, texture)
         {
             this.radius = radius;
             this.texture = texture;
@@ -412,7 +429,7 @@ namespace Template
 
         }
 
-        public Color3 GetTextureColor(Vector3 point)
+        public override Color3 GetTextureColor(Vector3 point)
         {
             Vector3 pLocal = Vector3.Normalize(point - position);
 
@@ -629,9 +646,22 @@ namespace Template
 
                             // Base color to fake ambient lighting
                             // Bepaal de juiste diffuse kleur: textuurkleur als het een Sphere met texture is, anders gewone diffuseColor
-                            Color3 baseColor = closestPrimaryRayIntersection.intersectedPrimitive is Sphere texturedSphere && texturedSphere.texture != null
-                                ? texturedSphere.GetTextureColor(closestPrimaryRayIntersection.intersectionPoint)
-                                : closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor;
+
+                            // Aanroep texture sphere
+                            //Color3 baseColor = closestPrimaryRayIntersection.intersectedPrimitive is Sphere texturedSphere && texturedSphere.texture != null
+                            //? texturedSphere.GetTextureColor(closestPrimaryRayIntersection.intersectionPoint)
+                            //: closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor;
+
+                            Color3 baseColor;
+                            if (closestPrimaryRayIntersection.intersectedPrimitive.texture != null)
+                            {
+                                baseColor = closestPrimaryRayIntersection.intersectedPrimitive.GetTextureColor(closestPrimaryRayIntersection.intersectionPoint);
+                            }
+                            else
+                            {
+                                baseColor = closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor;
+                            }
+
 
                             // Ambient lighting component
                             Color3 pixelColor = new Color3(
@@ -770,13 +800,9 @@ namespace Template
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             this.screen = screen;
 
-            if (!File.Exists("../../../../Marmer.png"))
-            {
-                Console.WriteLine("FOUT: Marmer.png niet gevonden!");
-                Console.WriteLine("Zoekt in: " + Path.GetFullPath("Marmer.png"));
-            }
 
-            AnyBitmap bitmap = new AnyBitmap("Marmer.png");
+            AnyBitmap bitmap = new AnyBitmap("../../../../Marmer.png");
+            AnyBitmap triangleTexture = new AnyBitmap("../../../../Bakstenen.png");
 
             camera = new Camera(
                 new Vector3(200, 0, 2000),
@@ -805,20 +831,20 @@ namespace Template
                     new Color3(1,1,1),
                     false, []),
                 new Plane(
-                    new Vector3(50, 0, 350),
+                    new Vector3(20, 0, 350),
                     new Color3(1,0,0),
                     new Color3(1,1,1) * 2,
                     new Vector3(0, 0, -1),
                     150,
                     150, 
-                    planeTexture,
+                    triangleTexture,
                     false, []),
                 new Triangle(
-                    new Vector3(0, 0, 0),
-                    new Color3(1, 1, 1), 
+                    new Vector3(50, 20, 100),
+                    new Color3(1, 0, 0), 
                     new Color3(1, 1, 1),
                     400,
-                    600,
+                    500,
                     triangleTexture,
                     false,[]),
             ],
