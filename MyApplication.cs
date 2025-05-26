@@ -1,23 +1,13 @@
 // TODO:
 // template.cs handmatig updaten
-// Implement the plane debugDraw method
-// implement plane of arbitrary size
-// implement triangle primitive
-// fixen van rotation drift in rotation om de lookAtDirection
-
-// vragen: 
-// Wat is interpolatedNormals bij de bonuspunten? 
-// is een parallel for genoeg om het parallel bonus punt te krijgen?
-// waarom eindigt mijn plane altijd in het midden van het scherm?
-// waarom is de rand van de bollen zo pixelated maar van de specular spots niet?
-
-// parallel for ergens in gooien
 
 using Microsoft.VisualBasic;
 using OpenTK.Mathematics;
 using System.Diagnostics;
 using System.Globalization;
 using IronSoftware.Drawing;
+using OpenTK.Windowing.Common;
+using SixLabors.ImageSharp.PixelFormats;
 
 namespace Template
 {
@@ -137,9 +127,9 @@ namespace Template
         Vector3 normal;
         float width;
         float height;
-        public Bitmap texture;
+        public AnyBitmap texture;
 
-        public Triangle(Vector3 position, Color3 diffuseColor, Color3 specularColor, float width, float height, Bitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
+        public Triangle(Vector3 position, Color3 diffuseColor, Color3 specularColor, float width, float height, AnyBitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
             : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
         {
             this.width = width;
@@ -243,9 +233,9 @@ namespace Template
         float width;
         float height;
 
-        public Bitmap texture;
+        public AnyBitmap texture;
 
-        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, Bitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
+        public Plane(Vector3 position, Color3 diffuseColor, Color3 specularColor, Vector3 normal, float width, float height, AnyBitmap texture, bool mirrorValue, List<Intersection> closestIntersections)
             : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
         {
             this.normal = normal;
@@ -301,14 +291,12 @@ namespace Template
 
             if (width != 0 && height != 0)
             {
-            // checken of snijpunt binnen vlak valt
-            if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
-                return null; // Buiten het vlak
-
+                // checken of snijpunt binnen vlak valt
+                if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
+                    return null; // Buiten het vlak
+            }
 
             Vector3 surfaceNormal = this.normal;
-            return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
-
 
             Color3? textureCol = texture != null ? GetTextureColor(intersectionPoint) : null;
             return new Intersection(intersectionPoint, this, t, surfaceNormal, ray) { textureColor = textureCol };
@@ -346,8 +334,8 @@ namespace Template
         public double radius;
         public AnyBitmap texture; // Voeg een texture toe
 
-        public Sphere(Vector3 position, double radius, AnyBitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
-            : base(position, new Color3(1, 1, 1), specularColor, mirrorValue, closestIntersections)
+        public Sphere(Vector3 position, double radius, AnyBitmap texture, Color3 diffuseColor, Color3 specularColor, bool mirrorValue, List<Intersection> closestIntersections)
+            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections)
         {
             this.radius = radius;
             this.texture = texture;
@@ -477,6 +465,135 @@ namespace Template
             this.screen = screen;
         }
 
+        Color3 Trace(Intersection mirrorIntersection, int NOB)
+        {
+            int MAXBOUNCES = 5;
+            if (NOB >= MAXBOUNCES)
+            {
+                return new Color3(0,0,0);
+            }
+
+            Vector3 reflectedVectorNormal = (mirrorIntersection.ray.normal - 2 * Vector3.Dot(mirrorIntersection.ray.normal, mirrorIntersection.surfaceNormal) * mirrorIntersection.surfaceNormal).Normalized();
+
+            List<Intersection> intersectionArray = new List<Intersection>();
+
+            foreach (GeometryPrimitive primitive in scene.primitives)
+            {
+                Intersection? intersectionResult = primitive.Intersect(new Ray(reflectedVectorNormal, mirrorIntersection.intersectionPoint));
+                if (intersectionResult != null)
+                {
+                    intersectionArray.Add(intersectionResult);
+                }
+            }
+
+            if (intersectionArray.Count() != 0)
+            {
+                Intersection closestIntersection = intersectionArray
+                    .OrderBy(i => i.distanceToStartingPoint)
+                    .First();
+
+                if (closestIntersection.intersectedPrimitive.mirrorValue == true)
+                {
+                    return Trace(closestIntersection, NOB + 1);
+                }
+                else
+                {
+                    return DeterminePixelColor(closestIntersection);
+                }
+            }
+            else
+            {
+                return new Color3(0, 0, 0);
+            }
+        
+
+        }
+
+        Color3 DeterminePixelColor(Intersection closestPrimaryRayIntersection)
+        {
+            // Bepaal de juiste diffuse kleur: textuurkleur als het een Sphere met texture is, anders gewone diffuseColor
+            Color3 baseColor = closestPrimaryRayIntersection.intersectedPrimitive is Sphere texturedSphere && texturedSphere.texture != null
+                ? texturedSphere.GetTextureColor(closestPrimaryRayIntersection.intersectionPoint)
+                : closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor;
+
+            // Ambient lighting component
+            Color3 pixelColor = new Color3(
+                baseColor.R * scene.ambientRadiance.R,
+                baseColor.G * scene.ambientRadiance.G,
+                baseColor.B * scene.ambientRadiance.B);
+
+            foreach (LightSource lightSource in scene.lightSources)
+            {
+                List<Intersection> lightRayIntersectionArray = new List<Intersection>();
+                Vector3 lightRayNormal = (closestPrimaryRayIntersection.intersectionPoint - lightSource.position).Normalized();
+
+                Ray lightRay = new Ray(lightRayNormal, lightSource.position);
+                foreach (GeometryPrimitive primitive in scene.primitives)
+                {
+                    Intersection? intersectionResult = primitive.Intersect(lightRay);
+                    if (intersectionResult != null)
+                    {
+                        lightRayIntersectionArray.Add(intersectionResult);
+                    }
+                }
+
+                if (lightRayIntersectionArray.Count != 0)
+                {
+                    // Console.WriteLine(lightRayIntersectionArray.Count);
+                    Intersection closestLightRayIntersection = lightRayIntersectionArray
+                        .OrderBy(i => i.distanceToStartingPoint)
+                        .First();
+
+                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.1)
+                    {
+                        continue;
+                    }
+
+                    Vector3 lightRayDiff = closestLightRayIntersection.intersectionPoint - closestLightRayIntersection.ray.startingPosition;
+                    Vector3 primaryRayDiff = closestPrimaryRayIntersection.intersectionPoint - closestPrimaryRayIntersection.ray.startingPosition;
+                    if (Vector3.Dot(lightRayDiff, closestPrimaryRayIntersection.surfaceNormal) * Vector3.Dot(primaryRayDiff, closestPrimaryRayIntersection.surfaceNormal) < 0)
+                    {
+                        continue;
+                    }
+
+
+                    // shading logic                               
+                    float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
+
+                    Vector3 diffuseContribution = new Vector3(
+                        diffuseReflectionRatio * lightSource.color.R * baseColor.R,
+                        diffuseReflectionRatio * lightSource.color.G * baseColor.G,
+                        diffuseReflectionRatio * lightSource.color.B * baseColor.B);
+
+                    Vector3 lightVector = lightRay.normal * (float)closestLightRayIntersection.distanceToStartingPoint;
+                    Vector3 reflectedVectorNormal = (lightVector - 2 * Vector3.Dot(lightVector, closestLightRayIntersection.surfaceNormal) * closestLightRayIntersection.surfaceNormal).Normalized();
+
+                    Vector3 viewVectorNormal = (closestPrimaryRayIntersection.ray.normal * (float)closestPrimaryRayIntersection.distanceToStartingPoint).Normalized();
+
+                    int specularity = 50;
+                    float specularReflectionRatio = (float)Math.Pow(Math.Max(0, -1 * Vector3.Dot(reflectedVectorNormal, viewVectorNormal)), specularity) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
+
+                    Vector3 specularContribution = new Vector3(
+                        specularReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.R,
+                        specularReflectionRatio * lightSource.color.G * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.G,
+                        specularReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.B
+                    );
+
+
+                    pixelColor = new Color3(
+                        pixelColor.R + diffuseContribution[0] + specularContribution[0],
+                        pixelColor.G + diffuseContribution[1] + specularContribution[1],
+                        pixelColor.B + diffuseContribution[2] + specularContribution[2]
+                    );
+
+                }
+
+
+            }
+
+            return pixelColor;
+        }
+
         public void Render(bool debugMode)
         {
             if (debugMode == true)
@@ -564,7 +681,7 @@ namespace Template
                                 Intersection closestLightRayIntersection = lightRayIntersectionArray
                                     .OrderBy(i => i.distanceToStartingPoint)
                                     .First();
-                                
+
                                 // This should make the lightrays not draw when inside a sphere, but it doesnt work
                                 // Vector3 lightRayDiff = closestLightRayIntersection.intersectionPoint - closestLightRayIntersection.ray.startingPosition;
                                 // Vector3 primaryRayDiff = closestIntersection.intersectionPoint - closestIntersection.ray.startingPosition;
@@ -603,19 +720,18 @@ namespace Template
                 float cameraWidthScale = camera.width / screen.width;
                 float cameraHeightScale = camera.height / screen.height;
 
-                List<Intersection> primaryIntersectionArray = new List<Intersection>();
-
                 // Parallel.For(0, screen.height + 1, heightPixel =>
                 for (int heightPixel = 0; heightPixel <= screen.height; heightPixel++)
                 {
-                    for (int widthPixel = 0; widthPixel <= screen.width; widthPixel++)
+                    Parallel.For(0, screen.width + 1,
+                    widthPixel =>
                     {
                         Vector3 rayNormal = camera.position + cameraWidthScale * ((int)Math.Round(0.5 * screen.width) - widthPixel) * leftDirection + cameraHeightScale * ((int)Math.Round(0.5 * screen.height) - heightPixel) * camera.upDirection - focalPoint;
                         rayNormal.Normalize();
 
                         Ray ray = new Ray(rayNormal, focalPoint);
 
-                        primaryIntersectionArray = new List<Intersection>();
+                        List<Intersection> primaryIntersectionArray = new List<Intersection>();
 
                         foreach (GeometryPrimitive primitive in scene.primitives)
                         {
@@ -632,98 +748,20 @@ namespace Template
                                 .OrderBy(i => i.distanceToStartingPoint)
                                 .First();
 
-                            // Base color to fake ambient lighting
-                            // Bepaal de juiste diffuse kleur: textuurkleur als het een Sphere met texture is, anders gewone diffuseColor
-                            Color3 baseColor = closestPrimaryRayIntersection.intersectedPrimitive is Sphere texturedSphere && texturedSphere.texture != null
-                                ? texturedSphere.GetTextureColor(closestPrimaryRayIntersection.intersectionPoint)
-                                : closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor;
+                            Color3 pixelColor;
 
-                            // Ambient lighting component
-                            Color3 pixelColor = new Color3(
-                                baseColor.R * scene.ambientRadiance.R,
-                                baseColor.G * scene.ambientRadiance.G,
-                                baseColor.B * scene.ambientRadiance.B);
-
-                            Color3 pixelColorToneMapped = pixelColor;
-
-                            foreach (LightSource lightSource in scene.lightSources)
+                            if (closestPrimaryRayIntersection.intersectedPrimitive.mirrorValue == true)
                             {
-                                List<Intersection> lightRayIntersectionArray = new List<Intersection>();
-                                Vector3 lightRayNormal = (closestPrimaryRayIntersection.intersectionPoint - lightSource.position).Normalized();
-
-                                Ray lightRay = new Ray(lightRayNormal, lightSource.position);
-                                foreach (GeometryPrimitive primitiveSecond in scene.primitives)
-                                {
-                                    Intersection? intersectionResult = primitiveSecond.Intersect(lightRay);
-                                    if (intersectionResult != null)
-                                    {
-                                        lightRayIntersectionArray.Add(intersectionResult);
-                                    }
-                                }
-
-                                if (lightRayIntersectionArray.Count != 0)
-                                {
-                                    Intersection closestLightRayIntersection = lightRayIntersectionArray
-                                        .OrderBy(i => i.distanceToStartingPoint)
-                                        .First();
-
-                                    if ((closestLightRayIntersection.intersectionPoint - closestPrimaryRayIntersection.intersectionPoint).Length > 0.1)
-                                    {
-                                        continue;
-                                    }
-
-                                    Vector3 lightRayDiff = closestLightRayIntersection.intersectionPoint - closestLightRayIntersection.ray.startingPosition;
-                                    Vector3 primaryRayDiff = closestPrimaryRayIntersection.intersectionPoint - closestPrimaryRayIntersection.ray.startingPosition;
-                                    if (Vector3.Dot(lightRayDiff, closestPrimaryRayIntersection.surfaceNormal) * Vector3.Dot(primaryRayDiff, closestPrimaryRayIntersection.surfaceNormal) < 0)
-                                    {
-                                        continue;
-                                    }
-
-
-                                    // shading logic                               
-                                    float diffuseReflectionRatio = Math.Max(0, Vector3.Dot(lightRay.normal, closestPrimaryRayIntersection.surfaceNormal)) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
-
-                                    Vector3 diffuseContribution = new Vector3(
-                                        diffuseReflectionRatio * lightSource.color.R * baseColor.R,
-                                        diffuseReflectionRatio * lightSource.color.G * baseColor.G,
-                                        diffuseReflectionRatio * lightSource.color.B * baseColor.B);
-
-                                    Vector3 lightVector = lightRay.normal * (float)closestLightRayIntersection.distanceToStartingPoint;
-                                    Vector3 reflectedVectorNormal = (lightVector - 2 * Vector3.Dot(lightVector, closestLightRayIntersection.surfaceNormal) * closestLightRayIntersection.surfaceNormal).Normalized();
-
-                                    Vector3 viewVectorNormal = (closestPrimaryRayIntersection.ray.normal * (float)closestPrimaryRayIntersection.distanceToStartingPoint).Normalized();
-
-                                    int specularity = 50;
-                                    float specularReflectionRatio = (float)Math.Pow(Math.Max(0, -1 * Vector3.Dot(reflectedVectorNormal, viewVectorNormal)), specularity) / (float)Math.Pow(closestLightRayIntersection.distanceToStartingPoint, 2);
-
-                                    Vector3 specularContribution = new Vector3(
-                                        specularReflectionRatio * lightSource.color.R * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.R,
-                                        specularReflectionRatio * lightSource.color.G * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.G,
-                                        specularReflectionRatio * lightSource.color.B * closestPrimaryRayIntersection.intersectedPrimitive.specularColor.B
-                                    );
-
-
-                                    pixelColor = new Color3(
-                                        pixelColor.R + diffuseContribution[0] + specularContribution[0],
-                                        pixelColor.G + diffuseContribution[1] + specularContribution[1],
-                                        pixelColor.B + diffuseContribution[2] + specularContribution[2]
-                                    );
-
-                                    pixelColorToneMapped = new Color3(
-                                        pixelColor.R / (1 + pixelColor.R),
-                                        pixelColor.G / (1 + pixelColor.G),
-                                        pixelColor.B / (1 + pixelColor.B)
-                                    );
-
-                                }
-                                lightRayIntersectionArray = new List<Intersection>();
-
-
+                                pixelColor = Trace(closestPrimaryRayIntersection, 0);
+                            }
+                            else
+                            {
+                                pixelColor = DeterminePixelColor(closestPrimaryRayIntersection);
                             }
 
                             screen.Plot(widthPixel, heightPixel, pixelColor);
                         }
-                    }
+                    });
                 }
 
             }
@@ -775,14 +813,6 @@ namespace Template
             CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
             this.screen = screen;
 
-            if (!File.Exists("../../../../Marmer.png"))
-            {
-                Console.WriteLine("FOUT: Marmer.png niet gevonden!");
-                Console.WriteLine("Zoekt in: " + Path.GetFullPath("Marmer.png"));
-            }
-
-            AnyBitmap bitmap = new AnyBitmap("Marmer.png");
-
             camera = new Camera(
                 new Vector3(200, 0, 2000),
                 new Vector3(0, 0, -1),
@@ -799,24 +829,25 @@ namespace Template
             [
                 new Sphere(
                     new Vector3(100, 0, 300),
-                    40, bitmap,
+                    40,
+                    new AnyBitmap("Marmer.png"),
                     new Color3(0,1,0),
                     new Color3(1,1,1),
                     false, []),
                 new Sphere(
-                    new Vector3(100 + 200 * (float)Math.Cos(0.2), 0, 300 + 200 * (float)Math.Sin(0.2)),
-                    100, bitmap,
+                    new Vector3(600, 0, 300),
+                    100, new AnyBitmap("Marmer.png"),
                     new Color3(1,0,0),
                     new Color3(1,1,1),
-                    false, []),
+                    true, []),
                 new Plane(
                     new Vector3(50, 0, 350),
                     new Color3(1,0,0),
-                    new Color3(1,1,1) * 2,
-                    new Vector3(0, 0, -1),
+                    new Color3(1,1,1),
+                    new Vector3(1, 0, 0),
                     150,
                     150, 
-                    planeTexture,
+                    new AnyBitmap("Marmer.png"),
                     false, []),
                 new Triangle(
                     new Vector3(0, 0, 0),
@@ -824,12 +855,12 @@ namespace Template
                     new Color3(1, 1, 1),
                     400,
                     600,
-                    triangleTexture,
+                    new AnyBitmap("Marmer.png"),
                     false,[]),
             ],
             [
-                new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 400000 ),
-                new LightSource(new Vector3(300, 500, 800), new Color3(1,1,1) * 400000 )
+                new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 200000 ),
+                new LightSource(new Vector3(300, 500, 800), new Color3(1,1,1) * 200000 )
             ], new Color3((float)0, (float)0, (float)0));
             rayTracer = new RayTracer(scene, camera, screen);
         }
