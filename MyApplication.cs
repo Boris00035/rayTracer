@@ -15,7 +15,7 @@ using Microsoft.VisualBasic;
 using OpenTK.Mathematics;
 using System.Diagnostics;
 using System.Globalization;
-using System.Drawing;
+using IronSoftware.Drawing;
 
 namespace Template
 {
@@ -278,9 +278,9 @@ namespace Template
     public class Sphere : GeometryPrimitive
     {
         public double radius;
-        public Bitmap texture; // Voeg een texture toe
+        public AnyBitmap texture; // Voeg een texture toe
 
-        public Sphere(Vector3 position, double radius, Bitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
+        public Sphere(Vector3 position, double radius, AnyBitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
             : base(position, new Color3(1, 1, 1), specularColor, mirrorValue, closestIntersections)
         {
             this.radius = radius;
@@ -667,12 +667,12 @@ namespace Template
 
     public class Texture
     {
-        public Bitmap bitmap;
+        public AnyBitmap bitmap;
 
         // Constructor: laadt een afbeelding van schijf
         public Texture(string Marmer)
         {
-            bitmap = new Bitmap(Marmer);
+            bitmap = new AnyBitmap(Marmer);
         }
 
         // Haalt kleur op van gegeven UV-coordinaten
@@ -715,7 +715,7 @@ namespace Template
                 Console.WriteLine("Zoekt in: " + Path.GetFullPath("Marmer.png"));
             }
 
-            Bitmap bitmap = new Bitmap("Marmer.png");
+            AnyBitmap bitmap = new AnyBitmap("Marmer.png");
 
             camera = new Camera(
                 new Vector3(200, 0, 2000),
