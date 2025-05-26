@@ -10,18 +10,18 @@ Formalities:
 [ ] Cleaned (no obj/bin folders)
 
 Minimum requirements implemented:
-[ ] Camera: position and orientation controls, field of view in degrees
+[x] Camera: position and orientation controls, field of view in degrees
 Controls: ...
-[ ] Primitives: plane, sphere
-[ ] Lights: at least 2 point lights, additive contribution, shadows without "acne"
-[ ] Diffuse shading: (N.L), distance attenuation
-[ ] Phong shading: (R.V) or (N.H), exponent
+[x] Primitives: plane, sphere
+[x] Lights: at least 2 point lights, additive contribution, shadows without "acne"
+[x] Diffuse shading: (N.L), distance attenuation
+[x] Phong shading: (R.V) or (N.H), exponent
 [ ] Diffuse color texture: only required on the plane primitive, image or procedural, (u,v) texture coordinates
 [ ] Mirror reflection: recursive
-[ ] Debug visualization: sphere primitives, rays (primary, shadow, reflected, refracted)
+[x] Debug visualization: sphere primitives, rays (primary, shadow, reflected, refracted)
 
 Bonus features implemented:
-[ ] Triangle primitives: must use the algorithm from the lectures, single triangles or meshes
+[x] Triangle primitives: must use the algorithm from the lectures, single triangles or meshes
 [ ] Interpolated normals: only required on triangle primitives, 3 different vertex normals must be specified
 [ ] Spot lights: smooth falloff optional
 [ ] Glossy reflections: not only of light sources but of other objects
