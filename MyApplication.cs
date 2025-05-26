@@ -11,6 +11,8 @@
 // waarom eindigt mijn plane altijd in het midden van het scherm?
 // waarom is de rand van de bollen zo pixelated maar van de specular spots niet?
 
+// parallel for ergens in gooien
+
 using Microsoft.VisualBasic;
 using OpenTK.Mathematics;
 using System.Diagnostics;
@@ -304,9 +306,12 @@ namespace Template
             float uDistance = Vector3.Dot(localVector, u);
             float vDistance = Vector3.Dot(localVector, v);
 
+            if (width != 0 && height != 0)
+            {
             // checken of snijpunt binnen vlak valt
             if (Math.Abs(uDistance) > width / 2f || Math.Abs(vDistance) > height / 2f)
                 return null; // Buiten het vlak
+
 
             Vector3 surfaceNormal = this.normal;
             return new Intersection(intersectionPoint, this, t, surfaceNormal, ray);
