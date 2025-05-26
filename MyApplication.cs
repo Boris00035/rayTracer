@@ -348,8 +348,8 @@ namespace Template
         public double radius;
         public AnyBitmap texture; // Voeg een texture toe
 
-        public Sphere(Vector3 position, double radius, AnyBitmap texture, Color3 specularColor, Color3 color3, bool mirrorValue, List<Intersection> closestIntersections)
-            : base(position, new Color3(1, 1, 1), specularColor, mirrorValue, closestIntersections, texture)
+        public Sphere(Vector3 position, double radius, AnyBitmap texture, Color3 diffuseColor, Color3 specularColor, bool mirrorValue, List<Intersection> closestIntersections)
+            : base(position, diffuseColor, specularColor, mirrorValue, closestIntersections, texture)
         {
             this.radius = radius;
             this.texture = texture;
@@ -791,8 +791,8 @@ namespace Template
             this.screen = screen;
 
 
-            AnyBitmap bitmap = new AnyBitmap("../../../../Marmer.png");
-            AnyBitmap triangleTexture = new AnyBitmap("../../../../Bakstenen.png");
+            AnyBitmap bitmap = new AnyBitmap("Marmer.png");
+            AnyBitmap triangleTexture = new AnyBitmap("Bakstenen.png");
 
             camera = new Camera(
                 new Vector3(200, 0, 2000),
@@ -810,7 +810,8 @@ namespace Template
             [
                 new Sphere(
                     new Vector3(100, 0, 300),
-                    40, bitmap,
+                    40,
+                    bitmap,
                     new Color3(0,1,0),
                     new Color3(1,1,1),
                     false, []),
@@ -827,7 +828,7 @@ namespace Template
                     new Vector3(0, 0, -1),
                     150,
                     150, 
-                    triangleTexture,
+                    null,
                     false, []),
                 new Triangle(
                     new Vector3(50, 20, 100),
@@ -839,8 +840,8 @@ namespace Template
                     false,[]),
             ],
             [
-                new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 400000 ),
-                new LightSource(new Vector3(300, 500, 800), new Color3(1,1,1) * 400000 )
+                new LightSource(new Vector3(600, 500, 500), new Color3(1,1,1) * 200000 ),
+                new LightSource(new Vector3(300, 500, 800), new Color3(1,1,1) * 200000 )
             ], new Color3((float)0, (float)0, (float)0));
             rayTracer = new RayTracer(scene, camera, screen);
         }
