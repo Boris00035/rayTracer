@@ -1,13 +1,12 @@
 Team members: (names and student IDs)
-* ...
-* ...
-* ...
+* Boris van Boxtel 1210556
+* Isabel Spillebeen 7531583
 
 Tick the boxes below for the implemented features. Add a brief note only if necessary, e.g., if it's only partially working, or how to turn it on.
 
 Formalities:
-[ ] This readme.txt
-[ ] Cleaned (no obj/bin folders)
+[x] This readme.txt
+[x] Cleaned (no obj/bin folders)
 
 Minimum requirements implemented:
 [x] Camera: position and orientation controls, field of view in degrees
@@ -23,7 +22,7 @@ Controls:
 [x] Diffuse shading: (N.L), distance attenuation
 [x] Phong shading: (R.V) or (N.H), exponent
 [x] Diffuse color texture: only required on the plane primitive, image or procedural, (u,v) texture coordinates
-[ ] Mirror reflection: recursive
+[x] Mirror reflection: recursive
 [x] Debug visualization: sphere primitives, rays (primary, shadow, reflected, refracted)
 
 Bonus features implemented:
@@ -45,5 +44,5 @@ Performance comparison: ... (provide one measurement of speed/time with and with
 Method: ... (for example: fragment shader, compute shader, ILGPU, or CUDA)
 
 Notes:
--  
+-  The planes can be infinite by setting either size to 0.
 

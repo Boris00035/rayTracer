@@ -471,7 +471,7 @@ namespace Template
 
         Color3 Trace(Intersection mirrorIntersection, int NOB)
         {
-            int MAXBOUNCES = 5;
+            int MAXBOUNCES = 2;
             if (NOB >= MAXBOUNCES)
             {
                 return new Color3(0,0,0);
@@ -506,7 +506,7 @@ namespace Template
                 }
             }
             else
-            {
+            {   
                 return new Color3(0, 0, 0);
             }
         
@@ -749,6 +749,7 @@ namespace Template
                             {
                                 primaryIntersectionArray.Add(intersectionResult);
                             }
+
                         }
 
                         if (primaryIntersectionArray.Count != 0)
@@ -757,14 +758,6 @@ namespace Template
                                 .OrderBy(i => i.distanceToStartingPoint)
                                 .First();
 
-                            // Base color to fake ambient lighting
-                            // Bepaal de juiste diffuse kleur: textuurkleur als het een Sphere met texture is, anders gewone diffuseColor
-
-                            // Aanroep texture sphere
-                            //Color3 baseColor = closestPrimaryRayIntersection.intersectedPrimitive is Sphere texturedSphere && texturedSphere.texture != null
-                            //? texturedSphere.GetTextureColor(closestPrimaryRayIntersection.intersectionPoint)
-                            //: closestPrimaryRayIntersection.intersectedPrimitive.diffuseColor;
-
                             Color3 pixelColor;
                             if (closestPrimaryRayIntersection.intersectedPrimitive.mirrorValue == true)
                             {
@@ -772,8 +765,13 @@ namespace Template
                             }
                             else
                             {
+                                if (closestPrimaryRayIntersection.intersectedPrimitive.GetType() == typeof(Plane)) {
+
+                                }
                                 pixelColor = DeterminePixelColor(closestPrimaryRayIntersection);
                             }
+
+                            
 
                             screen.Plot(widthPixel, heightPixel, pixelColor);
                         }
@@ -861,17 +859,26 @@ namespace Template
                     new Color3(1,1,1),
                     false, []),
                 new Plane(
-                    new Vector3(20, 0, 350),
+                    new Vector3(0, -100, 0),
                     new Color3(1,0,0),
                     new Color3(1,1,1),
-                    new Vector3(1, 0, 0),
+                    new Vector3(0, -1, 0),
+                    500,
+                    500, 
+                    null,
+                    false, []),
+                new Plane(
+                    new Vector3(-100, 0, 350),
+                    new Color3(0,1,0),
+                    new Color3(1,1,1),
+                    new Vector3(-1, 0, 0),
                     150,
                     150, 
                     null,
                     false, []),
                 new Triangle(
-                    new Vector3(50, 20, 100),
-                    new Color3(1, 0, 0), 
+                    new Vector3(50, -50, 100),
+                    new Color3(1, 0, 0),
                     new Color3(1, 1, 1),
                     400,
                     500,
