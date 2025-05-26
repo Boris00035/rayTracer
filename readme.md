@@ -11,12 +11,18 @@ Formalities:
 
 Minimum requirements implemented:
 [x] Camera: position and orientation controls, field of view in degrees
-Controls: ...
+Controls:
+    - WS for movement in direction of camera.normal
+    - AD for movement in direction of camera.leftdirection
+    - FR for fov changes
+    - N to toggle debug text
+    - M to toggle debug mode
+    - O to toggle the orientationlock, horizontal movement is done with horizontal movement of the camera, vertical movement idem
 [x] Primitives: plane, sphere
 [x] Lights: at least 2 point lights, additive contribution, shadows without "acne"
 [x] Diffuse shading: (N.L), distance attenuation
 [x] Phong shading: (R.V) or (N.H), exponent
-[ ] Diffuse color texture: only required on the plane primitive, image or procedural, (u,v) texture coordinates
+[x] Diffuse color texture: only required on the plane primitive, image or procedural, (u,v) texture coordinates
 [ ] Mirror reflection: recursive
 [x] Debug visualization: sphere primitives, rays (primary, shadow, reflected, refracted)
 
@@ -28,7 +34,7 @@ Bonus features implemented:
 [ ] Anti-aliasing
 [x] Parallelized
 Method: binnensteLoop een parallel for
-[ ] Textures: on all implemented primitives
+[x] Textures: on all implemented primitives
 [ ] Bump or normal mapping: on all implemented primitives
 [ ] Environment mapping: sphere or cube map, without intersecting actual sphere/cube/triangle primitives
 [ ] Refraction: also requires a reflected ray at every refractive surface, recursive
@@ -39,4 +45,5 @@ Performance comparison: ... (provide one measurement of speed/time with and with
 Method: ... (for example: fragment shader, compute shader, ILGPU, or CUDA)
 
 Notes:
-...
+-  
+
