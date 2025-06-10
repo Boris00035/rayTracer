@@ -1,50 +1,49 @@
-Team members: (names and student IDs)
-* Boris van Boxtel 1210556
-* Isabel Spillebeen 7531583
+### **Team Members**  
+- Boris van Boxtel (1210556)  
+- Isabel Spillebeen (7531583)  
 
-Tick the boxes below for the implemented features. Add a brief note only if necessary, e.g., if it's only partially working, or how to turn it on.
+### **Implemented Features**  
+*(Tick the boxes below. Add notes if partially working.)*  
 
-Formalities:
-[x] This readme.txt
-[x] Cleaned (no obj/bin folders)
+#### **Formalities**  
+- [x] This `readme.txt`  
+- [x] Cleaned (no `obj/bin` folders)  
 
-Minimum requirements implemented:
-[x] Camera: position and orientation controls, field of view in degrees
-Controls:
+#### **Minimum Requirements**  
+- [x] **Camera**: Position/orientation controls, field of view (degrees)  
+  **Controls**:  
+  - `WS`: Move along camera normal  
+  - `AD`: Move along camera left direction  
+  - `FR`: Adjust FOV  
+  - `N`: Toggle debug text  
+  - `M`: Toggle debug mode  
+  - `O`: Toggle orientation lock (horizontal/vertical movement follows camera)  
 
-    - WS for movement in direction of camera.normal
-    - AD for movement in direction of camera.leftdirection
-    - FR for fov changes
-    - N to toggle debug text
-    - M to toggle debug mode
-    - O to toggle the orientationlock, horizontal movement is done with horizontal movement of the camera, vertical movement idem
+- [x] **Primitives**: Plane, sphere  
+- [x] **Lights**: ≥2 point lights, additive contribution, shadows (no "acne")  
+- [x] **Diffuse shading**: `(N.L)` + distance attenuation  
+- [x] **Phong shading**: `(R.V)` or `(N.H)` + exponent  
+- [x] **Diffuse texture**: Plane only (image/procedural, `(u,v)` coords)  
+- [x] **Mirror reflection**: Recursive  
+- [x] **Debug visualization**: Sphere primitives, rays (primary/shadow/reflected/refracted)  
 
-[x] Primitives: plane, sphere
-[x] Lights: at least 2 point lights, additive contribution, shadows without "acne"
-[x] Diffuse shading: (N.L), distance attenuation
-[x] Phong shading: (R.V) or (N.H), exponent
-[x] Diffuse color texture: only required on the plane primitive, image or procedural, (u,v) texture coordinates
-[x] Mirror reflection: recursive
-[x] Debug visualization: sphere primitives, rays (primary, shadow, reflected, refracted)
+#### **Bonus Features**  
+- [x] **Triangle primitives**: Lecture’s algorithm (single/meshes)  
+- [ ] **Interpolated normals**: Triangle primitives only (3 vertex normals)  
+- [ ] **Spot lights**: Smooth falloff optional  
+- [ ] **Glossy reflections**: Objects (not just lights)  
+- [ ] **Anti-aliasing**  
+- [x] **Parallelized**  
+  *(Method: Inner loop as `Parallel.For`)*  
+- [x] **Textures**: All primitives  
+- [ ] **Bump/normal mapping**: All primitives  
+- [ ] **Environment mapping**: Sphere/cube map (no intersections)  
+- [ ] **Refraction**: Reflected ray at refractive surfaces (recursive)  
+- [ ] **Area lights**: Soft shadows  
+- [ ] **Acceleration structure**: Bounding box/hierarchy (5000+ primitives)  
+  *(Performance comparison: N/A)*  
+- [ ] **GPU implementation**  
+  *(Method: N/A)*  
 
-Bonus features implemented:
-[x] Triangle primitives: must use the algorithm from the lectures, single triangles or meshes
-[ ] Interpolated normals: only required on triangle primitives, 3 different vertex normals must be specified
-[ ] Spot lights: smooth falloff optional
-[ ] Glossy reflections: not only of light sources but of other objects
-[ ] Anti-aliasing
-[x] Parallelized
-Method: binnensteLoop een parallel for
-[x] Textures: on all implemented primitives
-[ ] Bump or normal mapping: on all implemented primitives
-[ ] Environment mapping: sphere or cube map, without intersecting actual sphere/cube/triangle primitives
-[ ] Refraction: also requires a reflected ray at every refractive surface, recursive
-[ ] Area lights: soft shadows
-[ ] Acceleration structure: bounding box or hierarchy, scene with 5000+ primitives
-Performance comparison: ... (provide one measurement of speed/time with and without the acceleration structure)
-[ ] GPU implementation
-Method: ... (for example: fragment shader, compute shader, ILGPU, or CUDA)
-
-Notes:
--  The planes can be infinite by setting either size to 0.
-
+#### **Notes**  
+- Planes can be infinite (set size to `0`).
