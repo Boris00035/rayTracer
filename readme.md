@@ -11,12 +11,14 @@ Formalities:
 Minimum requirements implemented:
 [x] Camera: position and orientation controls, field of view in degrees
 Controls:
+
     - WS for movement in direction of camera.normal
     - AD for movement in direction of camera.leftdirection
     - FR for fov changes
     - N to toggle debug text
     - M to toggle debug mode
     - O to toggle the orientationlock, horizontal movement is done with horizontal movement of the camera, vertical movement idem
+
 [x] Primitives: plane, sphere
 [x] Lights: at least 2 point lights, additive contribution, shadows without "acne"
 [x] Diffuse shading: (N.L), distance attenuation
